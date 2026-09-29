@@ -48,7 +48,8 @@
           "photosPermission": "BrightPath lets you attach an optional photo to an observation. Photos stay on this device.",
           "cameraPermission": "Take an optional photo of an activity (not faces, please). Photos stay on this device."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": false,
