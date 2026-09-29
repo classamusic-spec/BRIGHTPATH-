@@ -77,10 +77,10 @@ export default function MyRoom() {
               return (
                 <Appear key={it.id} delay={i * 60} style={{ width: '31.5%' }}>
                   <Card style={{ alignItems: 'center', paddingVertical: 14, opacity: unlocked ? 1 : 0.55 }} accessibilityLabel={`${it.label}${unlocked ? '' : `, unlocks at ${it.unlockAt} stars`}`}>
-                    <Svg width={86} height={86} viewBox="0 0 100 100">
+                    <Svg width={92} height={92} viewBox="0 0 100 100">
                       <RoomItemArt id={it.id} />
                     </Svg>
-                    <Txt v="subheading" color={colors.text} style={{ fontSize: 18, marginTop: 4 }}>
+                    <Txt v="subheading" color={colors.text} style={{ fontSize: 19.5, marginTop: 4 }}>
                       {it.label}
                     </Txt>
                     {!unlocked ? (
@@ -91,7 +91,7 @@ export default function MyRoom() {
               );
             })}
           </View>
-          <Callout tone="white" art={<Fox pose="head" size={84} interactive={false} />} text="Collect stars to make your room your own!" style={{ marginTop: 14, ...shadows.soft }} />
+          <Callout tone="white" art={<Fox pose="head" size={96} interactive={false} />} text="Collect stars to make your room your own!" style={{ marginTop: 14, ...shadows.soft }} />
         </>
       ) : (
         <>

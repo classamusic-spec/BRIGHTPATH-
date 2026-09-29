@@ -13,6 +13,7 @@ export function Callout({
   tone = 'sky',
   style,
   center,
+  textSize = 20,
 }: {
   art?: ReactNode;
   title?: string;
@@ -20,6 +21,8 @@ export function Callout({
   tone?: Tone | 'white' | 'plain';
   style?: StyleProp<ViewStyle>;
   center?: boolean;
+  /** Size of the line when there is no title (kid screens read big). */
+  textSize?: number;
 }) {
   const bg = tone === 'plain' ? 'transparent' : tone === 'white' ? colors.card : tones[tone].bg;
   return (
@@ -31,7 +34,7 @@ export function Callout({
             {title}
           </Txt>
         ) : null}
-        <Txt v="body" color={title ? colors.textSoft : colors.text} style={{ fontSize: title ? 15 : 17, lineHeight: title ? 20 : 23 }}>
+        <Txt v="body" color={title ? colors.textSoft : colors.text} style={{ fontSize: title ? 15 : textSize, lineHeight: title ? 20 : Math.round(textSize * 1.3) }}>
           {text}
         </Txt>
       </View>

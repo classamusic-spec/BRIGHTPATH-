@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icons/Icon';
 import { MyToolsButton } from '@/components/kid/MyTools';
-import { StoryScene } from '@/components/scenery/Scenes';
+import { SCENE_ASPECT, SCENE_TOP, StoryScene } from '@/components/scenery/Scenes';
 import { Appear, BackButton, Button, Canvas, Header, ProgressBar, Tap, Txt } from '@/components/ui';
 import type { MissionStep } from '@/content/types';
 import { speak } from '@/lib/speech';
@@ -23,6 +23,9 @@ function ReadAloud({ text, inline = false }: { text: string; inline?: boolean })
 /** 06 · In-Game Scenario */
 export function StepScenario({ step, next }: StepProps<Extract<MissionStep, { type: 'scenario' }>>) {
   const insets = useSafeAreaInsets();
+  // The scene keeps its authored proportions and sits just above the text
+  // card (tucked 34pt behind it); taller screens extend the wall/sky colour.
+  const [cardSpace, setCardSpace] = useState(0);
   useEffect(() => {
     speak(step.text);
   }, [step.text]);
@@ -43,17 +46,19 @@ export function StepScenario({ step, next }: StepProps<Extract<MissionStep, { ty
           <MyToolsButton />
         </View>
       </View>
-      <View style={styles.sceneWrap}>
-        <StoryScene scene={step.scene} style={styles.scene} />
-        <Appear style={[styles.textCard, { marginBottom: Math.max(insets.bottom, 12) }]}>
-          <Txt v="heading" center color="#12248C" style={{ fontSize: 24, lineHeight: 32, fontFamily: 'Nunito_700Bold' }}>
-            {step.text}
-          </Txt>
-          <View style={styles.cardActions}>
-            <ReadAloud text={step.text} inline />
-          </View>
-          <Button title={step.cta} size="md" onPress={next} style={{ marginTop: 14, alignSelf: 'center', paddingHorizontal: 40 }} />
-        </Appear>
+      <View style={[styles.sceneWrap, { backgroundColor: SCENE_TOP[step.scene] }]}>
+        <StoryScene scene={step.scene} style={[styles.scene, { bottom: Math.max(0, cardSpace - 34), aspectRatio: SCENE_ASPECT[step.scene] }]} />
+        <View onLayout={(e) => setCardSpace(e.nativeEvent.layout.height)} style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          <Appear style={styles.textCard}>
+            <Txt v="heading" center color="#12248C" style={{ fontSize: 24, lineHeight: 32, fontFamily: 'Nunito_700Bold' }}>
+              {step.text}
+            </Txt>
+            <View style={styles.cardActions}>
+              <ReadAloud text={step.text} inline />
+            </View>
+            <Button title={step.cta} size="md" onPress={next} style={{ marginTop: 14, alignSelf: 'center', paddingHorizontal: 40 }} />
+          </Appear>
+        </View>
       </View>
     </View>
   );
@@ -71,8 +76,8 @@ export function StepStory({ step, next }: StepProps<Extract<MissionStep, { type:
       <View style={{ paddingTop: insets.top }}>
         <Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />
       </View>
-      <View style={{ flex: 1 }}>
-        <StoryScene scene={step.scene} style={StyleSheet.absoluteFill} />
+      <View style={{ flex: 1, backgroundColor: SCENE_TOP[step.scene], justifyContent: 'flex-end', overflow: 'hidden' }}>
+        <StoryScene scene={step.scene} style={{ width: '118%', alignSelf: 'center', aspectRatio: SCENE_ASPECT[step.scene] }} />
       </View>
       <Appear style={[styles.storyCard, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
         <ReadAloud text={step.text} />
@@ -95,7 +100,8 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12 },
   count: { backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 12, height: 40, alignItems: 'center', justifyContent: 'center', ...shadows.soft },
   sceneWrap: { flex: 1, marginHorizontal: 10, borderRadius: radius.xl, overflow: 'hidden', justifyContent: 'flex-end' },
-  scene: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  // Slightly wider than the frame: a gentle zoom that keeps the action big.
+  scene: { position: 'absolute', left: '-8%', right: '-8%' },
   textCard: {
     marginHorizontal: 12,
     backgroundColor: 'rgba(255,255,255,0.97)',

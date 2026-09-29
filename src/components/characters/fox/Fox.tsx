@@ -496,23 +496,26 @@ function SeatedBody({ p, pack, legs = 'forward' }: { p: string; pack: boolean; l
           <Path d="M 144 132 C 166 132 176 150 176 170 C 176 184 170 192 160 194 L 142 194 Z" fill={`url(#${p}pack)`} />
         </G>
       )}
+      {/* Pear-shaped, well-padded seated torso (as on the boards). */}
       <Path
-        d="M 95 126 C 84 144 80 168 82 190 C 84 202 100 206 120 206 C 140 206 156 202 158 190 C 160 168 156 144 145 126 Z"
+        d="M 94 124 C 80 142 72 166 74 190 C 76 204 98 208 120 208 C 142 208 164 204 166 190 C 168 166 160 142 146 124 Z"
         fill={`url(#${p}body)`}
       />
-      <Path d="M 120 142 C 134 142 141 156 141 172 C 141 188 132 198 120 198 C 108 198 99 188 99 172 C 99 156 106 142 120 142 Z" fill={`url(#${p}cream)`} />
+      <Path d="M 120 140 C 136 140 145 156 145 173 C 145 190 134 200 120 200 C 106 200 95 190 95 173 C 95 156 104 140 120 140 Z" fill={`url(#${p}cream)`} />
       <Ellipse cx={120} cy={133} rx={17} ry={8} fill={FOX.bib} />
       {legs === 'forward' ? (
         <G>
-          <Path d="M 90 184 C 76 188 68 198 72 208 C 76 214 92 214 104 208 C 110 202 106 190 100 186 Z" fill={`url(#${p}limb)`} />
-          <Path d="M 150 184 C 164 188 172 198 168 208 C 164 214 148 214 136 208 C 130 202 134 190 140 186 Z" fill={`url(#${p}limb)`} />
-          <Foot p={p} cx={80} cy={208} w={30} h={17} rot={-8} />
-          <Foot p={p} cx={160} cy={208} w={30} h={17} rot={8} />
+          <Path d="M 88 184 C 72 188 64 198 68 208 C 72 214 90 214 102 208 C 108 202 104 190 98 186 Z" fill={`url(#${p}limb)`} />
+          <Path d="M 152 184 C 168 188 176 198 172 208 C 168 214 150 214 138 208 C 132 202 136 190 142 186 Z" fill={`url(#${p}limb)`} />
+          <Foot p={p} cx={77} cy={208} w={32} h={18} rot={-8} />
+          <Foot p={p} cx={163} cy={208} w={32} h={18} rot={8} />
         </G>
       ) : (
         <G>
-          <Path d="M 70 190 C 62 180 72 168 96 170 L 144 170 C 168 168 178 180 170 190 C 164 202 140 208 120 208 C 100 208 76 202 70 190 Z" fill={`url(#${p}body)`} />
-          <Path d="M 78 192 C 92 184 108 184 120 190 C 132 184 148 184 162 192" stroke={FOX.furShade} strokeOpacity={0.35} strokeWidth={2} fill="none" strokeLinecap="round" />
+          <Path d="M 60 192 C 50 180 64 166 94 168 L 146 168 C 176 166 190 180 180 192 C 172 206 144 212 120 212 C 96 212 68 206 60 192 Z" fill={`url(#${p}body)`} />
+          <Path d="M 70 194 C 88 184 106 184 120 191 C 134 184 152 184 170 194" stroke={FOX.furShade} strokeOpacity={0.35} strokeWidth={2} fill="none" strokeLinecap="round" />
+          <Ellipse cx={66} cy={196} rx={10} ry={8} fill={`url(#${p}paw)`} />
+          <Ellipse cx={174} cy={196} rx={10} ry={8} fill={`url(#${p}paw)`} />
         </G>
       )}
       {pack && (
@@ -760,9 +763,11 @@ export function Fox({
     if (!interactive) return;
     tapHaptic();
     if (level !== 'off') {
-      a.poke.value = withSequence(
-        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
-        withSpring(0, { damping: 7, stiffness: 180 }),
+      a.poke.set(
+        withSequence(
+          withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
+          withSpring(0, { damping: 7, stiffness: 180 }),
+        ),
       );
     }
     const closedEyes = ex === 'calm' || ex === 'sleepy';

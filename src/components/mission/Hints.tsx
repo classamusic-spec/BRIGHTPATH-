@@ -13,11 +13,10 @@ import { colors } from '@/theme';
  */
 export function useHintVisible(base: number): { visible: boolean; level: number; reveal: (lvl: number) => void } {
   const helpSignal = useMission((s) => s.helpSignal);
-  const [level, setLevel] = useState<number>(base >= 5 ? base : 0);
+  const [picked, setLevel] = useState<number>(base >= 5 ? base : 0);
   const [start] = useState(helpSignal);
-  useEffect(() => {
-    if (helpSignal !== start) setLevel((l) => Math.max(l, 3));
-  }, [helpSignal, start]);
+  // Asking for Help (My Tools) reveals at least a visual cue.
+  const level = helpSignal !== start ? Math.max(picked, 3) : picked;
   useEffect(() => {
     if (base >= 3 && base < 5) {
       const t = setTimeout(() => setLevel((l) => Math.max(l, 3)), 7000);

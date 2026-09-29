@@ -22,7 +22,7 @@ export default function Splash() {
         <Appear from="up">
           <BrandBlock />
         </Appear>
-        <FitBox style={styles.hero} aspect={0.86} max={440} min={220}>
+        <FitBox style={styles.hero} aspect={0.86} max={390} min={220}>
           {(size) => (
             <Fox pose="wave" size={size} onPress={() => speak('Hi! I’m Finn. Let’s play, practice and feel good together!')} accessibilityLabel="Finn the fox waving hello. Tap to say hi." />
           )}

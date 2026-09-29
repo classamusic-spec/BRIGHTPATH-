@@ -109,20 +109,20 @@ function QuestFamily({ mission, step, learner }: StepProps<RW>) {
     >
       <HouseScene compact style={{ height: 150, marginTop: -6 }} />
       <Appear style={[styles.card, { marginHorizontal: 12, marginTop: -8 }]}>
-        <View style={{ flexDirection: 'row', gap: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ gap: 10, alignItems: 'center' }}>
-            <IconTile tone="sky" size={86} radiusPx={43}>
-              <Icon name="house" size={50} color="#E4504E" />
+            <IconTile tone="sky" size={76} radiusPx={38}>
+              <Icon name="house" size={46} color="#E4504E" />
             </IconTile>
             <View style={styles.starDot}>
-              <Icon name="star" size={34} color="#FFFFFF" />
+              <Icon name="star" size={32} color="#FFFFFF" />
             </View>
           </View>
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Txt v="title" style={{ fontSize: 27, lineHeight: 33 }}>
+            <Txt v="title" style={{ fontSize: 25.5, lineHeight: 31 }}>
               {step.questTitle}
             </Txt>
-            <Txt v="bodyLg" color={colors.text} style={{ fontSize: 20, lineHeight: 27, marginTop: 10 }}>
+            <Txt v="bodyLg" color={colors.text} style={{ fontSize: 21, lineHeight: 28, marginTop: 8 }}>
               {step.quest}
             </Txt>
           </View>
@@ -130,7 +130,7 @@ function QuestFamily({ mission, step, learner }: StepProps<RW>) {
         {step.example ? (
           <Callout tone="blush" art={<Icon name="heart" size={62} />} text={step.example} style={{ marginTop: 16, paddingVertical: 18 }} />
         ) : null}
-        <Callout tone="sky" art={<Fox pose="head" size={84} interactive={false} />} text={step.tip} style={{ marginTop: 12 }} />
+        <Callout tone="sky" art={<Fox pose="head" size={96} interactive={false} />} text={step.tip} style={{ marginTop: 12 }} />
         <Button title={step.cta} onPress={() => finish(true)} style={{ marginTop: 16 }} />
         <Tap onPress={() => finish(false)} style={{ alignSelf: 'center', padding: 10 }} accessibilityLabel="Maybe later">
           <Txt v="label" color={colors.textMuted}>
@@ -151,5 +151,5 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFFFFF', borderRadius: radius.xxl, padding: GUTTER, ...shadows.card },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   tryThis: { backgroundColor: '#D6F3EC', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
-  starDot: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
+  starDot: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
 });

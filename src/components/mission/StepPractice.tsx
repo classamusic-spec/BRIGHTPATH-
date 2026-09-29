@@ -8,7 +8,7 @@ import { Icon } from '@/components/icons/Icon';
 import { buddyName } from '@/components/kid/Buddy';
 import { MyToolsButton } from '@/components/kid/MyTools';
 import { Landscape } from '@/components/scenery/Landscape';
-import { Appear, Button, CheckBadge, Header, Tap, Txt } from '@/components/ui';
+import { Appear, Button, CheckBadge, FitBox, Header, Tap, Txt } from '@/components/ui';
 import type { MissionStep } from '@/content/types';
 import type { SupportLevel } from '@/engine/types';
 import { selectHaptic, successHaptic } from '@/lib/feedback';
@@ -29,7 +29,22 @@ const PHASES = [
   { key: 'out', seconds: 3, to: 0 },
 ] as const;
 
-function Shell({ step, learnerBuddy, children, footer, fox }: { step: PracticeStep; learnerBuddy: string; children: React.ReactNode; footer: React.ReactNode; fox: React.ReactNode }) {
+function Shell({
+  step,
+  learnerBuddy,
+  children,
+  footer,
+  fox,
+  foxMax,
+}: {
+  step: PracticeStep;
+  learnerBuddy: string;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+  /** Renders the hero at the largest size (≤ foxMax) that fits the screen. */
+  fox: (size: number) => React.ReactNode;
+  foxMax: number;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -57,7 +72,9 @@ function Shell({ step, learnerBuddy, children, footer, fox }: { step: PracticeSt
       <View style={{ paddingTop: insets.top }}>
         <Header title={step.title} subtitle={step.subtitle.replace('{buddy}', learnerBuddy)} right={<MyToolsButton />} />
       </View>
-      <View style={styles.hero}>{fox}</View>
+      <FitBox style={styles.hero} max={foxMax} min={96}>
+        {fox}
+      </FitBox>
       <Appear style={[styles.card, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
         <Txt v="title" style={{ fontSize: 28, marginBottom: 10 }}>
           {step.heading}
@@ -129,12 +146,13 @@ function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
     <Shell
       step={step}
       learnerBuddy={buddyName(learner.buddy)}
-      fox={
+      foxMax={282}
+      fox={(size) => (
         <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
-          <Animated.View pointerEvents="none" style={[styles.ring, ring]} />
-          <Fox pose="breathe" size={250} breath={running ? breath : undefined} />
+          <Animated.View pointerEvents="none" style={[styles.ring, ring, { width: size * 0.82, height: size * 0.82, borderRadius: size * 0.41, bottom: size * 0.14 }]} />
+          <Fox pose="breathe" size={size} breath={running ? breath : undefined} />
         </View>
-      }
+      )}
       footer={
         finished ? (
           <Button title="Next" onPress={next} />
@@ -143,7 +161,7 @@ function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
         )
       }
     >
-      <View style={{ gap: 10 }}>
+      <View style={{ gap: 6 }}>
         {step.steps.map((s, i) => {
           const active = running && phase === i;
           const done = finished || (running && (phase > i || cycles > 0));
@@ -181,7 +199,7 @@ function HelpSignal({ mission, step, learner, next }: StepProps<PracticeStep>) {
     }, 1400);
   };
   return (
-    <Shell step={step} learnerBuddy={buddyName(learner.buddy)} fox={<Fox pose={stage === 3 ? 'cheer' : 'wave'} size={250} />} footer={stage === 3 ? <Button title="Next" onPress={next} /> : null}>
+    <Shell step={step} learnerBuddy={buddyName(learner.buddy)} foxMax={250} fox={(size) => <Fox pose={stage === 3 ? 'cheer' : 'wave'} size={size} />} footer={stage === 3 ? <Button title="Next" onPress={next} /> : null}>
       <View style={{ gap: 10 }}>
         {step.steps.map((s, i) => (
           <View key={s} style={[styles.stepRow, stage >= i + 1 ? { backgroundColor: colors.mintTint } : null]}>
@@ -238,7 +256,7 @@ function Sequence({ mission, step, learner, next }: StepProps<PracticeStep>) {
   };
   const complete = placed.length === step.steps.length;
   return (
-    <Shell step={step} learnerBuddy={buddyName(learner.buddy)} fox={<Fox pose={complete ? 'cheer' : 'wave'} size={220} />} footer={complete ? <Button title="Next" onPress={next} /> : null}>
+    <Shell step={step} learnerBuddy={buddyName(learner.buddy)} foxMax={220} fox={(size) => <Fox pose={complete ? 'cheer' : 'wave'} size={size} />} footer={complete ? <Button title="Next" onPress={next} /> : null}>
       <Txt v="body" color={colors.textSoft} style={{ marginBottom: 10 }}>
         {step.subtitle}
       </Txt>
@@ -282,7 +300,7 @@ export function StepPractice(props: StepProps<PracticeStep>) {
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 180 },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   card: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 10,
@@ -293,7 +311,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.lg, paddingVertical: 4, paddingHorizontal: 4 },
-  dot: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
   ring: { position: 'absolute', bottom: 40, width: 230, height: 230, borderRadius: 115, backgroundColor: '#8FD3B8' },
   helpBtn: { marginTop: 14, height: 76, borderRadius: 38, backgroundColor: '#F28A5B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, ...shadows.button },
   slots: { flexDirection: 'row', gap: 8, marginBottom: 12 },

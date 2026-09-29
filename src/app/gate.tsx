@@ -8,7 +8,7 @@ import { Fox } from '@/components/characters/fox/Fox';
 import { Icon } from '@/components/icons/Icon';
 import { SunMark } from '@/components/kid/Brand';
 import { Landscape, LANDSCAPES } from '@/components/scenery/Landscape';
-import { BackButton, Tap, Txt } from '@/components/ui';
+import { BackButton, FitBox, Tap, Txt } from '@/components/ui';
 import { selectHaptic, successHaptic } from '@/lib/feedback';
 import { colors, radius, shadows } from '@/theme';
 
@@ -39,7 +39,7 @@ export default function ParentGate() {
         successHaptic();
         setTimeout(() => router.replace('/coach'), 150);
       } else {
-        shake.value = withSequence(withTiming(-10, { duration: 50 }), withTiming(10, { duration: 50 }), withTiming(-6, { duration: 50 }), withTiming(0, { duration: 50 }));
+        shake.set(withSequence(withTiming(-10, { duration: 50 }), withTiming(10, { duration: 50 }), withTiming(-6, { duration: 50 }), withTiming(0, { duration: 50 })));
         setTimeout(() => {
           setEntry([]);
           setChallenge(makeChallenge());
@@ -78,9 +78,9 @@ export default function ParentGate() {
           </View>
         </Animated.View>
       </View>
-      <View style={styles.foxWrap}>
-        <Fox pose="wave" size={230} />
-      </View>
+      <FitBox style={styles.foxWrap} aspect={0.86} max={300} min={0}>
+        {(size) => (size >= 90 ? <Fox pose="wave" size={size} /> : null)}
+      </FitBox>
       <View style={[styles.pad, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
         {keys.map((k, i) => (
           <View key={i} style={styles.keyCell}>
@@ -103,10 +103,10 @@ export default function ParentGate() {
 }
 
 const styles = StyleSheet.create({
-  top: { alignItems: 'center', marginTop: -30 },
+  top: { alignItems: 'center', marginTop: -26 },
   prompt: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.85)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginTop: 10 },
   pip: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#D5DEEF' },
-  foxWrap: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 120 },
+  foxWrap: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   pad: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: 'rgba(233, 243, 253, 0.94)', borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingHorizontal: 14, paddingTop: 14, ...shadows.card },
   keyCell: { width: '33.33%', padding: 6 },
   key: { height: 62, borderRadius: radius.lg, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', ...shadows.soft },

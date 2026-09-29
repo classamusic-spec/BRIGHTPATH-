@@ -14,7 +14,7 @@ import { colors, radius } from '@/theme';
 
 import type { StepProps } from './context';
 
-function Toothbrushes({ size = 130 }: { size?: number }) {
+function Toothbrushes({ size = 142 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 120 120">
       <Ellipse cx={62} cy={106} rx={48} ry={8} fill="#DCEAFB" />
@@ -43,7 +43,7 @@ function Art({ art }: { art: ArtId }) {
     case 'toothbrush':
       return <Toothbrushes />;
     case 'foxReading':
-      return <Fox pose="read" size={140} />;
+      return <Fox pose="read" size={152} />;
     case 'shirt':
       return <Icon name="shirt" size={112} />;
     case 'bowl':
@@ -65,7 +65,7 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
   const arrowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: arrow.value * 6 }] }));
 
   return (
-    <Screen header={<Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />} footer={<Button title={step.cta} onPress={next} />}>
+    <Screen header={<Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />} contentStyle={{ flexGrow: 1, justifyContent: 'center' }}>
       <View style={styles.row}>
         <Appear style={[styles.col, { backgroundColor: '#FDF1D8' }]}>
           <Txt v="heading" center color={colors.ink} style={{ fontSize: 24, marginBottom: 10 }}>
@@ -82,10 +82,10 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
             style={styles.inner}
           >
             <Art art={step.first.art} />
-            <Txt v="heading" center color={colors.ink} style={{ fontSize: 24, marginTop: 8 }}>
+            <Txt v="heading" center color={colors.ink} style={{ fontSize: 26, lineHeight: 31, marginTop: 8 }}>
               {step.first.line1}
             </Txt>
-            <Txt v="bodyLg" center color={colors.ink} style={{ fontSize: 21 }}>
+            <Txt v="bodyLg" center color={colors.ink} style={{ fontSize: 22 }}>
               {step.first.line2}
             </Txt>
             {firstDone ? <CheckBadge size={36} style={{ position: 'absolute', top: 8, right: 8 }} /> : null}
@@ -102,18 +102,19 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
           </Txt>
           <View style={[styles.inner, firstDone ? { borderColor: colors.mint } : null]}>
             <Art art={step.then.art} />
-            <Txt v="heading" center color={colors.ink} style={{ fontSize: 24, marginTop: 8 }}>
+            <Txt v="heading" center color={colors.ink} style={{ fontSize: 26, lineHeight: 31, marginTop: 8 }}>
               {step.then.line1}
             </Txt>
-            <Txt v="bodyLg" center color={colors.ink} style={{ fontSize: 21 }}>
+            <Txt v="bodyLg" center color={colors.ink} style={{ fontSize: 22 }}>
               {step.then.line2}
             </Txt>
           </View>
         </Appear>
       </View>
       <Appear delay={300}>
-        <Callout tone="sky" art={<Fox pose="head" size={84} interactive={false} />} text={step.tip} style={{ marginTop: 18, paddingVertical: 16 }} />
+        <Callout tone="sky" art={<Fox pose="head" size={92} interactive={false} />} text={step.tip} style={{ marginTop: 18, paddingVertical: 16 }} />
       </Appear>
+      <Button title={step.cta} onPress={next} style={{ marginTop: 18 }} />
     </Screen>
   );
 }
@@ -121,6 +122,6 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
   col: { flex: 1, borderRadius: radius.xl, padding: 10, paddingTop: 14 },
-  inner: { backgroundColor: '#FFFFFF', borderRadius: radius.lg, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 6, minHeight: 250, justifyContent: 'center', borderWidth: 2.5, borderColor: 'transparent' },
+  inner: { backgroundColor: '#FFFFFF', borderRadius: radius.lg, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 6, minHeight: 286, justifyContent: 'center', borderWidth: 2.5, borderColor: 'transparent' },
   arrow: { width: 30, alignItems: 'center', marginHorizontal: -3, zIndex: 2 },
 });

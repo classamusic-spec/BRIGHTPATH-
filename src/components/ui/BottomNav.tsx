@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icons/Icon';
-import { colors, shadows } from '@/theme';
+import { shadows } from '@/theme';
 
 import { Tap } from './Tap';
 import { Txt } from './Txt';

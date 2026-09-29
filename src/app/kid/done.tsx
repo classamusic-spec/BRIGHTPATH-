@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fox } from '@/components/characters/fox/Fox';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { Landscape } from '@/components/scenery/Landscape';
-import { Appear, Button, Header, Txt } from '@/components/ui';
+import { Appear, Button, FitBox, Header, Txt } from '@/components/ui';
 import { speak } from '@/lib/speech';
 import { colors, GUTTER, radius, shadows } from '@/theme';
 
@@ -46,9 +46,9 @@ export default function AllDone() {
       <View style={{ paddingTop: insets.top }}>
         <Header title="All Done for Now!" onBack={() => router.dismissTo('/kid/home')} />
       </View>
-      <View style={styles.hero}>
-        <Fox pose="sleep" size={200} />
-      </View>
+      <FitBox style={styles.hero} aspect={270 / 170} max={230} min={90}>
+        {(size) => <Fox pose="sleep" size={size} />}
+      </FitBox>
       <Appear style={[styles.card, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
         <Txt v="heading" center color={colors.text} style={{ fontSize: 24, fontFamily: 'Nunito_700Bold' }}>
           You made progress today!
@@ -77,7 +77,7 @@ export default function AllDone() {
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 160 },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 90 },
   card: { backgroundColor: '#FFFFFF', marginHorizontal: 10, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingHorizontal: GUTTER, paddingTop: 20, ...shadows.card },
   tiles: { flexDirection: 'row', gap: 10, marginVertical: 14 },
   tile: { flex: 1, backgroundColor: '#EEF4FD', borderRadius: radius.lg, alignItems: 'center', paddingVertical: 16 },

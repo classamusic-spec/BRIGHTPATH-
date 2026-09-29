@@ -29,23 +29,22 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const level = useMotionLevel();
   const [mounted, setMounted] = useState(visible);
+  // Mount as soon as the sheet opens; with motion off there is no exit
+  // animation, so it unmounts straight away (state derived during render).
+  if (visible && !mounted) setMounted(true);
+  if (!visible && mounted && level === 'off') setMounted(false);
   const y = useSharedValue(1);
   useEffect(() => {
     if (visible) {
-      setMounted(true);
       y.value = level === 'off' ? 0 : withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
-    } else if (mounted) {
-      const done = () => setMounted(false);
-      if (level === 'off') {
-        y.value = 1;
-        done();
-      } else {
-        y.value = withTiming(1, { duration: 220 }, (f) => {
-          if (f) runOnJS(done)();
-        });
-      }
+    } else if (level === 'off') {
+      y.value = 1;
+    } else {
+      y.value = withTiming(1, { duration: 220 }, (f) => {
+        if (f) runOnJS(setMounted)(false);
+      });
     }
-  }, [visible, level, mounted, y]);
+  }, [visible, level, y]);
   const panel = useAnimatedStyle(() => ({ transform: [{ translateY: y.value * 600 }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: 1 - y.value }));
   if (!mounted) return null;

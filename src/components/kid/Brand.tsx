@@ -18,7 +18,8 @@ export function SunMark({ size = 120 }: { size?: number }) {
     t.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true);
   }, [level, t]);
   const rays = useAnimatedStyle(() => ({ transform: [{ scale: 0.94 + t.value * 0.08 }, { rotate: `${(t.value - 0.5) * 6}deg` }] }));
-  const h = size * 0.62;
+  // Box ends a little below the cloud so the wordmark never touches it.
+  const h = size * 0.7;
   const rayEls = [];
   for (let i = 0; i < 9; i++) {
     const a = Math.PI + (i / 8) * Math.PI; // upper half only

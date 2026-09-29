@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { Fox } from '@/components/characters/fox/Fox';
 import { Icon } from '@/components/icons/Icon';
 import { MyToolsButton } from '@/components/kid/MyTools';
 import { Landscape } from '@/components/scenery/Landscape';
-import { Appear, Button, Callout, Header, Screen, TwinkleStar, Txt } from '@/components/ui';
+import { Appear, Button, Callout, FitBox, Header, Screen, TwinkleStar, Txt } from '@/components/ui';
 import type { MissionStep } from '@/content/types';
 import { successHaptic } from '@/lib/feedback';
 import { useCelebration, useMotionLevel } from '@/lib/motion';
@@ -58,12 +58,16 @@ export function StepSuccess({ step, next }: StepProps<Extract<MissionStep, { typ
       <View style={{ paddingTop: insets.top }}>
         <Header title="" right={<MyToolsButton />} />
       </View>
-      <View style={styles.stage}>
-        {spots.map((s, i) => (
-          <TwinkleStar key={i} size={s.size} delay={i * 120} style={{ left: s.left as never, top: s.top as never }} />
-        ))}
-        <Fox pose="jump" size={370} />
-      </View>
+      <FitBox style={styles.stage} max={370} min={140}>
+        {(size) => (
+          <>
+            {spots.map((s, i) => (
+              <TwinkleStar key={i} size={s.size} delay={i * 120} style={{ left: s.left as never, top: s.top as never }} />
+            ))}
+            <Fox pose="jump" size={size} />
+          </>
+        )}
+      </FitBox>
       <Appear style={{ paddingHorizontal: GUTTER + 4, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
         <Txt v="display" center style={{ fontSize: 46, lineHeight: 52 }}>
           {step.title}
@@ -96,6 +100,7 @@ export function StepFeedback({ step, next }: StepProps<Extract<MissionStep, { ty
       padded={false}
       header={<Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />}
       footer={<Button title={step.cta} onPress={next} />}
+      contentStyle={{ flexGrow: 1 }}
     >
       <View style={styles.cheerStage}>
         <Landscape
@@ -121,7 +126,7 @@ export function StepFeedback({ step, next }: StepProps<Extract<MissionStep, { ty
             <TwinkleStar size={50} style={{ left: '80%', top: '38%' }} delay={300} />
           </>
         )}
-        <Fox pose="cheer" size={300} />
+        <Fox pose="cheer" size={312} />
       </View>
       <View style={styles.badgeRow}>
         {step.badges.map((b, i) => (
@@ -186,26 +191,29 @@ function BigStar() {
 }
 
 /** 17 · Mission Complete — stars and a badge are awarded here (never removed). */
-export function StepComplete({ step, next }: StepProps<Extract<MissionStep, { type: 'complete' }>>) {
+export function StepComplete({ step, next, mission }: StepProps<Extract<MissionStep, { type: 'complete' }>>) {
   const finishMission = useApp((s) => s.finishMission);
   const runId = useMission((s) => s.runId);
-  const [earned, setEarned] = useState(0);
+  // Stars are awarded once, when this run is marked complete.
+  const completed = useApp((s) => !!runId && !!s.runs.find((r) => r.id === runId)?.completedAt);
+  const earned = completed ? mission.stars : 0;
   const done = useRef(false);
   useEffect(() => {
-    if (done.current) return;
+    // Wait for the run (it starts in the mission screen's effect on a deep link).
+    if (done.current || !runId) return;
     done.current = true;
     playSound('chime', 0.6);
     successHaptic();
-    if (runId) setEarned(finishMission(runId).stars);
+    finishMission(runId);
     speak(`${step.title} ${step.message}`);
   }, [finishMission, runId, step.title, step.message]);
   return (
     <Screen header={<Header title={step.title} right={<MyToolsButton />} />} footer={<Button title={step.cta} onPress={next} />}>
       <BigStar />
-      <Txt v="title" center style={{ fontSize: 30, marginTop: 4 }}>
+      <Txt v="title" center style={{ fontSize: 31, lineHeight: 37, marginTop: 4 }}>
         {step.heading}
       </Txt>
-      <Txt v="bodyLg" center color={colors.text} style={{ fontSize: 20, lineHeight: 27, marginTop: 6 }}>
+      <Txt v="bodyLg" center color={colors.text} style={{ fontSize: 21, lineHeight: 28, marginTop: 6, maxWidth: 330, alignSelf: 'center' }}>
         {step.message}
       </Txt>
       {earned > 0 ? (
@@ -218,9 +226,9 @@ export function StepComplete({ step, next }: StepProps<Extract<MissionStep, { ty
         {step.checks.map((c, i) => (
           <Appear key={c} delay={200 + i * 120} style={styles.check}>
             <View style={styles.tick}>
-              <Icon name="check" size={30} color="#FFFFFF" />
+              <Icon name="check" size={34} color="#FFFFFF" />
             </View>
-            <Txt v="bodyLg" color={colors.text} style={{ fontSize: 21 }}>
+            <Txt v="bodyLg" color={colors.text} style={{ fontSize: 22 }}>
               {c}
             </Txt>
           </Appear>
@@ -233,10 +241,10 @@ export function StepComplete({ step, next }: StepProps<Extract<MissionStep, { ty
 const styles = StyleSheet.create({
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 16, paddingHorizontal: 12 },
-  cheerStage: { height: 330, alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' },
+  cheerStage: { flexGrow: 1, minHeight: 320, alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' },
   badgeRow: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER - 4, marginTop: -6 },
   badge: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: radius.lg, alignItems: 'center', paddingVertical: 16, ...shadows.soft },
   check: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#FFFFFF', borderRadius: radius.lg, padding: 12, ...shadows.soft },
-  tick: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
+  tick: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
   earned: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: colors.butterSoft, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, marginTop: 10 },
 });

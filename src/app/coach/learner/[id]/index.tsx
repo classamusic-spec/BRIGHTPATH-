@@ -10,6 +10,7 @@ import { Appear, Card, Header, ListRow, ProgressBar, Screen, SegmentedTabs, Shee
 import { KIND_LABEL, MODE_COPY } from '@/engine/decision';
 import { CONFIDENCE_LABEL, OUTCOME_LABELS } from '@/engine/evidence';
 import type { SkillArea } from '@/engine/types';
+import { useClock } from '@/lib/clock';
 import { useApp } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
 import { useAreaScores, useContextMatrix, useGoalViews, useLearnerObservations } from '@/store/derived';
@@ -43,13 +44,14 @@ export default function LearnerOverview() {
   const views = useGoalViews(learner.id);
   const obs = useLearnerObservations(learner.id);
   const sessions = useApp(useShallow((s) => s.runs.filter((r) => r.learnerId === learner.id)));
+  const now = useClock();
   const go = (path: string, params: Record<string, string> = {}) => router.push({ pathname: path as never, params: { id: learner.id, ...params } } as never);
 
   const cells = matrix.flat();
   const good = cells.filter((c) => c.status === 'strong' || c.status === 'growing');
   const support = cells.filter((c) => c.status === 'needs' || c.status === 'some');
   const recentObs = useMemo(() => [...obs].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 25), [obs]);
-  const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+  const weekAgo = now - 7 * 24 * 3600 * 1000;
   const engagedCount = obs.filter((o) => new Date(o.at).getTime() > weekAgo && o.source === 'app').length + sessions.filter((r) => new Date(r.startedAt).getTime() > weekAgo).length;
 
   return (

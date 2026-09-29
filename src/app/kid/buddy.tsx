@@ -19,6 +19,7 @@ export default function ChooseBuddy() {
   return (
     <Screen
       header={<Header title="Choose Your Buddy" subtitle="Pick a friend to explore with!" />}
+      contentStyle={{ paddingTop: 18 }}
       footer={
         <Button
           title="Next"

@@ -353,6 +353,28 @@ export function PlaygroundScene({ style }: { style?: StyleProp<ViewStyle> }) {
   );
 }
 
+/** Aspect ratio (width / height) each story scene is authored at. */
+export const SCENE_ASPECT: Record<SceneId, number> = {
+  playroom: 390 / 380,
+  bedroom: 390 / 360,
+  shelf: 390 / 380,
+  puzzle: 390 / 380,
+  playground: 390 / 380,
+  house: 390 / 230,
+  kitchen: 390 / 380,
+};
+
+/** Colour at the top edge of each scene, used to extend it into taller frames. */
+export const SCENE_TOP: Record<SceneId, string> = {
+  playroom: '#DCE4F8',
+  bedroom: '#FCEBD6',
+  shelf: '#E6EEFB',
+  puzzle: '#E3EBF9',
+  playground: SCENE.skyTop,
+  house: SCENE.skyTop,
+  kitchen: '#DCE4F8',
+};
+
 export function StoryScene({ scene, style }: { scene: SceneId; style?: StyleProp<ViewStyle> }): ReactNode {
   switch (scene) {
     case 'bedroom':

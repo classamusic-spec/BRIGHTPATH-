@@ -12,14 +12,16 @@ import { dimensionScores, journeyProgress, summarize, type DimensionScores, type
 import { isDue } from '@/engine/spaced';
 import { areaScore, dayCounts, isCelebration, keyInsights, patterns, progressReport, startOfDay, weeklySummary, type RangeKey } from '@/engine/summary';
 import type { GrowthGoal, JourneyMode, Observation, SkillArea } from '@/engine/types';
+import { useClock } from '@/lib/clock';
 
 import { useApp } from './index';
 
 const DAY = 24 * 3600 * 1000;
 
+/** The current time as a Date, refreshed every minute. */
 export function useNow(): Date {
-  // Stable for the lifetime of a screen render cycle.
-  return useMemo(() => new Date(), []);
+  const t = useClock();
+  return useMemo(() => new Date(t), [t]);
 }
 
 export function useLearnerGoals(learnerId: string): GrowthGoal[] {
@@ -57,53 +59,57 @@ export function goalView(goal: GrowthGoal, all: Observation[], now: Date): GoalV
 export function useGoalView(goalId: string | undefined): GoalView | null {
   const goal = useApp((s) => s.goals.find((g) => g.id === goalId));
   const obs = useApp((s) => s.observations);
-  return useMemo(() => (goal ? goalView(goal, obs, new Date()) : null), [goal, obs]);
+  const now = useNow();
+  return useMemo(() => (goal ? goalView(goal, obs, now) : null), [goal, obs, now]);
 }
 
 export function useGoalViews(learnerId?: string): GoalView[] {
   const goals = useApp((s) => s.goals);
   const obs = useApp((s) => s.observations);
-  return useMemo(() => {
-    const now = new Date();
-    return goals.filter((g) => !learnerId || g.learnerId === learnerId).map((g) => goalView(g, obs, now));
-  }, [goals, obs, learnerId]);
+  const now = useNow();
+  return useMemo(() => goals.filter((g) => !learnerId || g.learnerId === learnerId).map((g) => goalView(g, obs, now)), [goals, obs, learnerId, now]);
 }
 
 const MODE_ORDER: Record<JourneyMode, number> = { discover: 0, practice: 1, explore: 2, remember: 3 };
 
 /** Today's Mission: the due goal with the most pressing journey mode. */
-export function useTodayMission(learnerId: string): { mission: Mission; goal?: GrowthGoal; mode: JourneyMode } {
-  const views = useGoalViews(learnerId);
-  return useMemo(() => {
-    const now = new Date();
-    const active = views.filter((v) => v.goal.status === 'active' && !v.rec.pauseAdaptation && v.goal.missionIds.length);
-    active.sort((a, b) => {
+function pickTodayMission(views: GoalView[], now: Date): { mission: Mission; goal?: GrowthGoal; mode: JourneyMode } {
+  const active = views
+    .filter((v) => v.goal.status === 'active' && !v.rec.pauseAdaptation && v.goal.missionIds.length)
+    .sort((a, b) => {
       const due = Number(isDue(b.goal.spaced, now)) - Number(isDue(a.goal.spaced, now));
       if (due) return due;
       const m = MODE_ORDER[a.rec.mode] - MODE_ORDER[b.rec.mode];
       if (m) return m;
       return (a.goal.spaced.nextDue ?? '').localeCompare(b.goal.spaced.nextDue ?? '');
     });
-    for (const v of active) {
-      const fit = v.goal.missionIds.map((id) => missionById(id)).find((m) => m && m.journeyModes.includes(v.rec.mode)) ?? missionById(v.goal.missionIds[0]);
-      if (fit) return { mission: fit, goal: v.goal, mode: v.rec.mode };
-    }
-    return { mission: missionById('be-kind-home') ?? MISSIONS[0], mode: 'discover' };
-  }, [views]);
+  for (const v of active) {
+    const fit = v.goal.missionIds.map((id) => missionById(id)).find((m) => m && m.journeyModes.includes(v.rec.mode)) ?? missionById(v.goal.missionIds[0]);
+    if (fit) return { mission: fit, goal: v.goal, mode: v.rec.mode };
+  }
+  return { mission: missionById('be-kind-home') ?? MISSIONS[0], mode: 'discover' };
+}
+
+export function useTodayMission(learnerId: string): { mission: Mission; goal?: GrowthGoal; mode: JourneyMode } {
+  const views = useGoalViews(learnerId);
+  const now = useNow();
+  return useMemo(() => pickTodayMission(views, now), [views, now]);
 }
 
 export function useAreaScores(learnerId: string, days = 30, areas: SkillArea[]) {
   const obs = useLearnerObservations(learnerId);
+  const now = useClock();
   return useMemo(() => {
-    const since = Date.now() - days * DAY;
+    const since = now - days * DAY;
     const recent = obs.filter((o) => new Date(o.at).getTime() >= since);
     return areas.map((area) => ({ area, ...areaScore(recent, area) }));
-  }, [obs, days, areas]);
+  }, [obs, days, areas, now]);
 }
 
 export function useContextMatrix(learnerId: string, days = 60) {
   const obs = useLearnerObservations(learnerId);
-  return useMemo(() => contextMatrix(obs, new Date(Date.now() - days * DAY)), [obs, days]);
+  const now = useClock();
+  return useMemo(() => contextMatrix(obs, new Date(now - days * DAY)), [obs, days, now]);
 }
 
 export function useWeekly(learnerId: string, name: string, anchor: Date) {
@@ -114,16 +120,15 @@ export function useWeekly(learnerId: string, name: string, anchor: Date) {
 
 export function useInsights(learnerId: string, name: string) {
   const obs = useLearnerObservations(learnerId);
-  return useMemo(() => {
-    const now = new Date();
-    return { key: keyInsights(name, obs, now), patterns: patterns(name, obs, now) };
-  }, [obs, name]);
+  const now = useNow();
+  return useMemo(() => ({ key: keyInsights(name, obs, now), patterns: patterns(name, obs, now) }), [obs, name, now]);
 }
 
 export function useProgressReport(learnerId: string, range: RangeKey) {
   const goals = useLearnerGoals(learnerId);
   const obs = useLearnerObservations(learnerId);
-  return useMemo(() => progressReport(goals, obs, range, new Date()), [goals, obs, range]);
+  const now = useNow();
+  return useMemo(() => progressReport(goals, obs, range, now), [goals, obs, range, now]);
 }
 
 export interface DashboardStats {
@@ -139,8 +144,8 @@ const DAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export function useDashboard(learnerIds: string[]): DashboardStats {
   const goals = useApp((s) => s.goals);
   const obs = useApp((s) => s.observations);
+  const now = useNow();
   return useMemo(() => {
-    const now = new Date();
     const mine = obs.filter((o) => learnerIds.includes(o.learnerId));
     const active = goals.filter((g) => g.status === 'active' && learnerIds.includes(g.learnerId));
     const since30 = new Date(now.getTime() - 30 * DAY);
@@ -160,5 +165,5 @@ export function useDashboard(learnerIds: string[]): DashboardStats {
     const days = counts.map((count, i) => ({ label: DAY_LETTER[new Date(start.getTime() + i * DAY).getDay()], count }));
     const celebrations = mine.filter((o) => new Date(o.at) >= start && isCelebration(o)).length;
     return { learners: learnerIds.length, goalsInProgress: active.length, needSupport, celebrations, days };
-  }, [goals, obs, learnerIds]);
+  }, [goals, obs, learnerIds, now]);
 }

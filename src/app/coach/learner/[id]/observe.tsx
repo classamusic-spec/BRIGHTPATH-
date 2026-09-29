@@ -8,7 +8,7 @@ import { ChoiceChips, SectionTitle, TextField } from '@/components/coach/Form';
 import { useRouteLearner } from '@/components/coach/useRouteLearner';
 import { Icon } from '@/components/icons/Icon';
 import { Tree } from '@/components/scenery/elements';
-import { Appear, Button, Card, CheckBadge, Header, Screen, StatusFace, Tap, Txt } from '@/components/ui';
+import { Button, Card, CheckBadge, Header, Screen, StatusFace, Tap, Txt } from '@/components/ui';
 import { SUPPORT_LABELS } from '@/engine/evidence';
 import { AREA_LABEL } from '@/engine/summary';
 import type { Outcome, Setting, SkillArea, SupportLevel, Valence } from '@/engine/types';

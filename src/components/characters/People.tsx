@@ -103,9 +103,16 @@ export function Aiden({ size = 220, mood = 'sad', motion, style }: AidenProps) {
       <Rig style={[pivot(100, 216, W, H), body]}>
         <Layer vb={vb}>
           <AidenDefs p={p} />
-          <Path d="M 30 206 C 26 184 44 172 70 172 L 132 172 C 158 172 176 184 172 206 C 168 214 150 216 100 216 C 50 216 34 214 30 206 Z" fill={`url(#${p}pants)`} />
-          <Path d="M 142 196 C 152 190 170 190 176 198 C 180 206 172 212 160 212 C 150 212 140 206 142 196 Z" fill="#FFFFFF" />
-          <Path d="M 144 198 C 150 194 162 194 166 198" stroke="#E4E8F0" strokeWidth={2} fill="none" />
+          {/* Cross-legged: the left leg sits behind (knee out left, foot tucked
+              under the right knee), the right leg crosses in front. */}
+          <Path d="M 94 172 C 70 170 38 176 24 190 C 16 199 20 210 34 212 C 62 215 104 211 148 207 L 148 194 C 122 194 102 188 94 172 Z" fill="#3E4555" />
+          <Path d="M 146 194 C 156 188 173 188 180 197 C 184 206 176 213 161 213 C 150 213 141 206 146 194 Z" fill="#FFFFFF" />
+          <Path d="M 146 206 C 156 210 170 210 180 204" stroke="#DDE2EC" strokeWidth={2.4} fill="none" />
+          <Path d="M 106 172 C 130 170 162 176 176 190 C 184 199 180 210 166 212 C 138 216 98 215 62 213 C 51 212 47 204 53 198 C 80 196 98 190 106 172 Z" fill={`url(#${p}pants)`} />
+          <Path d="M 118 190 C 128 196 146 200 164 200" stroke="#3E4555" strokeWidth={2} strokeLinecap="round" opacity={0.5} fill="none" />
+          <Path d="M 56 196 C 46 189 28 189 21 198 C 17 206 25 213 40 213 C 51 213 60 206 56 196 Z" fill="#FFFFFF" />
+          <Path d="M 21 205 C 30 210 46 210 56 205" stroke="#DDE2EC" strokeWidth={2.4} fill="none" />
+          <Path d="M 30 196 L 42 195 M 33 200 L 45 199" stroke="#C9D1E0" strokeWidth={1.6} strokeLinecap="round" />
           <Path d="M 62 176 C 58 150 66 130 100 126 C 134 130 142 150 138 176 Z" fill={`url(#${p}shirt)`} />
           <Path d="M 66 150 C 54 160 50 176 60 184 C 70 190 92 188 104 182 L 100 170 C 88 172 78 170 76 162 Z" fill={`url(#${p}shirt)`} />
           <Ellipse cx={100} cy={180} rx={9} ry={7} fill={SKIN} />

@@ -1,4 +1,4 @@
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fox } from '@/components/characters/fox/Fox';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { Landscape } from '@/components/scenery/Landscape';
-import { Appear, Button, Header, Sheet, Tap, Txt } from '@/components/ui';
+import { Appear, Button, FitBox, Header, Sheet, Tap, Txt } from '@/components/ui';
 import { selectHaptic } from '@/lib/feedback';
 import { useMotionLevel } from '@/lib/motion';
 import { AMBIENT, playSound } from '@/lib/sound';
@@ -68,13 +68,16 @@ function BreatheModule({ breath }: { breath: SharedValue<number> }) {
 
 /* ----------------------------------------------------------- Quiet Sounds */
 
+/** Ambient loops play quietly and keep going until the child stops them. */
+function loopSoftly(player: AudioPlayer) {
+  player.loop = true;
+  player.volume = 0.7;
+}
+
 function SoundRow({ id }: { id: keyof typeof AMBIENT }) {
   const player = useAudioPlayer(AMBIENT[id].source);
   const [on, setOn] = useState(false);
-  useEffect(() => {
-    player.loop = true;
-    player.volume = 0.7;
-  }, [player]);
+  useEffect(() => loopSoftly(player), [player]);
   const toggle = () => {
     selectHaptic();
     if (on) player.pause();
@@ -235,9 +238,9 @@ export default function CalmSpace() {
       <View style={{ paddingTop: insets.top }}>
         <Header title="Calm Space" subtitle="Take a moment. You’ve got this." />
       </View>
-      <View style={styles.hero}>
-        <Fox pose="meditate" size={290} breath={open === 'breathe' ? breath : undefined} />
-      </View>
+      <FitBox style={styles.hero} aspect={240 / 214} max={290} min={110}>
+        {(size) => <Fox pose="meditate" size={size} breath={open === 'breathe' ? breath : undefined} />}
+      </FitBox>
       <View style={[styles.grid, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         {MODULES.map((m, i) => (
           <Appear key={m.key} delay={i * 80} style={styles.cell}>
@@ -280,7 +283,7 @@ export default function CalmSpace() {
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 200, paddingBottom: 6 },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 110, paddingBottom: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, paddingHorizontal: GUTTER - 6, backgroundColor: 'transparent' },
   cell: { width: '48.5%' },
   tile: { backgroundColor: '#FFFFFF', borderRadius: radius.xl, alignItems: 'center', justifyContent: 'center', paddingVertical: 22, ...shadows.soft },

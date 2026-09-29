@@ -52,10 +52,10 @@ export function Tap({
       disabled={disabled}
       hitSlop={hitSlop}
       onPressIn={() => {
-        if (level !== 'off') s.value = withTiming(scale, { duration: 90 });
+        if (level !== 'off') s.set(withTiming(scale, { duration: 90 }));
       }}
       onPressOut={() => {
-        s.value = withSpring(1, { damping: 12, stiffness: 260 });
+        s.set(withSpring(1, { damping: 12, stiffness: 260 }));
       }}
       onPress={() => {
         if (haptic) tapHaptic();

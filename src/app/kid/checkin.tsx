@@ -66,7 +66,7 @@ export default function CheckIn() {
         })}
       </View>
       <Appear delay={400}>
-        <Callout tone="white" art={<Icon name="sprout" size={46} />} text="All feelings are welcome here." style={{ marginTop: 18, paddingVertical: 20 }} />
+        <Callout tone="white" art={<Icon name="sprout" size={46} />} text="All feelings are welcome here." textSize={18} style={{ marginTop: 18, paddingVertical: 20 }} />
         <Tap onPress={() => router.replace('/kid/home')} accessibilityLabel="Not now, skip the check-in" style={{ alignSelf: 'center', padding: 12 }}>
           <Txt v="label" color={colors.textMuted}>
             Not now
