@@ -102,6 +102,8 @@ export type IconName =
 type Props = { name: IconName; size?: number; color?: string; opacity?: number };
 
 const G48 = '0 0 48 48';
+/** Icons never shrink inside flex rows (an <svg> on web otherwise would). */
+const ICON_STYLE = { flexShrink: 0 } as const;
 const G24 = '0 0 24 24';
 
 function Grad({ id, a, b, x2 = 0.4, y2 = 1 }: { id: string; a: string; b: string; x2?: number; y2?: number }) {
@@ -120,7 +122,7 @@ export const Icon = memo(function Icon({ name, size = 32, color, opacity = 1 }: 
   const u = useUid('ic');
   const g = (n: string) => `url(#${u}${n})`;
   const S = (vb: string, children: React.ReactNode, defs?: React.ReactNode) => (
-    <Svg width={size} height={size} viewBox={vb} opacity={opacity}>
+    <Svg width={size} height={size} viewBox={vb} opacity={opacity} style={ICON_STYLE}>
       {defs && <Defs>{defs}</Defs>}
       {children}
     </Svg>

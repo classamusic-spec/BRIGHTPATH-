@@ -19,6 +19,8 @@ const COLS: { key: Setting; label: string; icon: IconName; color?: string }[] = 
   { key: 'outdoors', label: 'Outdoors', icon: 'sun' },
 ];
 
+const HEAD_W = 134;
+
 const CELL_COLOR: Record<CellStatus, string> = {
   strong: '#6ACB8C',
   growing: '#B9E8C6',
@@ -38,11 +40,11 @@ export default function ContextMatrix() {
   return (
     <Screen header={<Header title="Context Matrix" subtitle={`See how ${learner.displayName} does in different settings.`} />}>
       <View style={styles.headRow}>
-        <View style={{ width: 118 }} />
+        <View style={{ width: HEAD_W }} />
         {COLS.map((c) => (
           <View key={c.key} style={styles.colHead}>
-            <Icon name={c.icon} size={32} color={c.color} />
-            <Txt v="caption" color={colors.text} style={{ marginTop: 2, fontFamily: 'Nunito_700Bold' }}>
+            <Icon name={c.icon} size={30} color={c.color} />
+            <Txt v="caption" color={colors.text} style={{ marginTop: 2, fontFamily: 'Nunito_700Bold', fontSize: 12 }} numberOfLines={1}>
               {c.label}
             </Txt>
           </View>
@@ -51,8 +53,8 @@ export default function ContextMatrix() {
       {matrix.map((row, ri) => (
         <Appear key={row[0].area} delay={ri * 50} style={styles.row}>
           <View style={styles.rowHead}>
-            <AreaIcon area={row[0].area} size={40} />
-            <Txt v="label" color={colors.text} style={{ flex: 1, fontSize: 14 }} numberOfLines={2}>
+            <AreaIcon area={row[0].area} size={32} />
+            <Txt v="label" color={colors.text} style={{ flex: 1, fontSize: 13 }} numberOfLines={1}>
               {AREA_META[row[0].area].label}
             </Txt>
           </View>
@@ -79,7 +81,7 @@ export default function ContextMatrix() {
         ).map(([k, l]) => (
           <View key={k} style={styles.legendItem}>
             <View style={[styles.swatch, { backgroundColor: CELL_COLOR[k] }]} />
-            <Txt v="bodySm" color={colors.text} style={{ fontSize: 15 }}>
+            <Txt v="bodySm" color={colors.text} style={{ fontSize: 14 }}>
               {l}
             </Txt>
           </View>
@@ -96,8 +98,8 @@ export default function ContextMatrix() {
         </Txt>
       </View>
       <Card style={{ marginTop: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: colors.butterSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="bulb" size={62} />
+        <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.butterSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="bulb" size={58} />
         </View>
         <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 18, lineHeight: 24 }}>
           {`Different environments bring different opportunities. You’re giving ${learner.displayName} what they need.`}
@@ -133,12 +135,12 @@ export default function ContextMatrix() {
 }
 
 const styles = StyleSheet.create({
-  headRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginTop: 8, marginBottom: 8 },
+  headRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 5, marginTop: 8, marginBottom: 8, marginHorizontal: -4 },
   colHead: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: radius.md, alignItems: 'center', paddingVertical: 8, ...shadows.soft },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  rowHead: { width: 118, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cell: { flex: 1, height: 58, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8, marginHorizontal: -4 },
+  rowHead: { width: HEAD_W, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cell: { flex: 1, height: 54, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   legend: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  swatch: { width: 34, height: 34, borderRadius: 9 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  swatch: { width: 24, height: 24, borderRadius: 7 },
 });

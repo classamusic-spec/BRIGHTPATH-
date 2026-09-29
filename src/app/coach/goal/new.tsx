@@ -97,7 +97,7 @@ export default function CreateGoal() {
     >
       {step === 1 && (
         <>
-          <Txt v="heading" color="#1320C4" style={{ fontSize: 23, marginBottom: 12 }}>
+          <Txt v="heading" color="#1320C4" style={{ fontSize: 22, marginBottom: 12 }}>
             What would you like to focus on?
           </Txt>
           <View style={{ gap: 12 }}>
@@ -115,7 +115,7 @@ export default function CreateGoal() {
                     accessibilityLabel={f.label}
                     style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 16 }}
                   >
-                    <IconTile tone={f.tone} size={70} radiusPx={18}>
+                    <IconTile tone={f.tone} size={64} radiusPx={18}>
                       <Icon name={FOCUS_ICON[f.id]} size={46} />
                     </IconTile>
                     <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 20 }}>

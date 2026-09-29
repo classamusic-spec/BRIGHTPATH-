@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { PersonAvatar, PEOPLE } from '@/components/characters/People';
 import { Fox } from '@/components/characters/fox/Fox';
@@ -10,8 +10,9 @@ import { BuddyPortrait } from '@/components/kid/Buddy';
 import { Appear, Card, Screen, SegmentedTabs, Tap, Txt } from '@/components/ui';
 import { recommend, KIND_LABEL } from '@/engine/decision';
 import { useApp } from '@/store';
+import { fitFontSize } from '@/lib/fitText';
 import { useDashboard } from '@/store/derived';
-import { colors, GUTTER, radius, shadows } from '@/theme';
+import { colors, fonts, GUTTER, radius, shadows } from '@/theme';
 
 function greeting(d = new Date()) {
   const h = d.getHours();
@@ -30,6 +31,9 @@ export default function Dashboard() {
   const ids = useMemo(() => (me ? me.learnerIds : learners.map((l) => l.id)), [me, learners]);
   const stats = useDashboard(ids);
   const [tab, setTab] = useState<'overview' | 'learners' | 'insights'>('overview');
+  const { width } = useWindowDimensions();
+  const hello = `${greeting()},`;
+  const helloSize = fitFontSize(hello.length > adultName.length ? hello : `${adultName}!`, fonts.black, 31, 22, width - 2 * GUTTER - 112);
 
   const openLearner = (id: string) => {
     setActive(id);
@@ -49,11 +53,11 @@ export default function Dashboard() {
       edges={['top']}
       header={
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: 6 }}>
-          <Txt v="display" color="#1320C4" style={{ flex: 1, fontSize: 34, lineHeight: 40 }} accessibilityRole="header">
-            {`${greeting()},\n${adultName}!`}
+          <Txt v="display" color="#1320C4" style={{ flex: 1, fontSize: helloSize, lineHeight: Math.round(helloSize * 1.2) }} numberOfLines={2} adjustsFontSizeToFit accessibilityRole="header">
+            {`${hello}\n${adultName}!`}
           </Txt>
           <Tap onPress={() => router.push('/coach/settings')} accessibilityLabel="Your account" style={{ borderRadius: 48, borderWidth: 4, borderColor: '#DCEBFC' }}>
-            <PersonAvatar look={PEOPLE.taylor} size={92} />
+            <PersonAvatar look={PEOPLE.taylor} size={90} />
           </Tap>
         </View>
       }
@@ -74,12 +78,12 @@ export default function Dashboard() {
       {tab === 'overview' && (
         <>
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <StatCard icon={<Icon name="people" size={60} />} value={String(stats.learners)} label="Learners" onPress={() => router.replace('/coach/learners')} />
-            <StatCard icon={<Icon name="sprout" size={60} />} value={String(stats.goalsInProgress)} label={'Goals in\nProgress'} onPress={() => router.replace('/coach/goals')} />
+            <StatCard icon={<Icon name="people" size={52} />} value={String(stats.learners)} label="Learners" onPress={() => router.replace('/coach/learners')} />
+            <StatCard icon={<Icon name="sprout" size={52} />} value={String(stats.goalsInProgress)} label={'Goals in\nProgress'} onPress={() => router.replace('/coach/goals')} />
           </View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-            <StatCard icon={<Icon name="heart" size={60} />} value={String(stats.needSupport.length)} valueColor="#E0264F" label="Need Support" onPress={() => setTab('insights')} />
-            <StatCard icon={<Icon name="star" size={60} />} value={String(stats.celebrations)} valueColor={colors.mintDeep} label="Celebrations" />
+            <StatCard icon={<Icon name="heart" size={52} />} value={String(stats.needSupport.length)} valueColor="#E0264F" label="Need Support" onPress={() => setTab('insights')} />
+            <StatCard icon={<Icon name="star" size={52} />} value={String(stats.celebrations)} valueColor={colors.mintDeep} label="Celebrations" />
           </View>
           <Appear delay={100}>
             <Card style={{ marginTop: 12, padding: 16 }}>
@@ -94,7 +98,7 @@ export default function Dashboard() {
                   <Icon name="chevronRight" size={20} color={colors.cobalt} />
                 </Tap>
               </View>
-              <WeekBars days={stats.days} height={140} />
+              <WeekBars days={stats.days} height={118} />
             </Card>
           </Appear>
           <Appear delay={180}>

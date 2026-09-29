@@ -74,9 +74,9 @@ export default function WeeklySummary() {
           </Txt>
           {w.focus.map((f, i) => (
             <View key={f.area} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }} accessible accessibilityLabel={`${AREA_META[f.area].label}: ${f.n ? Math.round(f.score * 100) + '%' : 'not enough evidence'}`}>
-              <AreaIcon area={f.area} size={44} />
-              <Txt v="body" color={colors.text} style={{ width: 128, fontSize: 17 }}>
-                {AREA_META[f.area].label}
+              <AreaIcon area={f.area} size={44} variant="badge" />
+              <Txt v="body" color={colors.text} style={{ width: 132, fontSize: 18 }} numberOfLines={1}>
+                {AREA_META[f.area].badge}
               </Txt>
               <View style={{ flex: 1 }}>
                 <ProgressBar value={f.n ? f.score : 0} color={BAR[f.area]} height={16} delay={i * 80} />

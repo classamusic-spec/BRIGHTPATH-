@@ -16,8 +16,8 @@ export const space = {
   xxxl: 36,
 } as const;
 
-/** Horizontal gutter used by every screen (≈22pt on a 390pt-wide phone). */
-export const GUTTER = 20;
+/** Horizontal gutter used by every screen (≈16pt on a 390pt-wide phone, as on the boards). */
+export const GUTTER = 16;
 
 export const radius = {
   sm: 12,

@@ -83,10 +83,10 @@ export default function CoachInsights() {
                     <Icon name={ICONS[k.id]} size={k.id === 'independence' ? 60 : 56} color={k.id === 'independence' ? '#2F74E8' : undefined} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Txt v="subheading" color="#1320C4" style={{ fontSize: 18 }}>
+                    <Txt v="subheading" color="#1320C4" style={{ fontSize: 19.5, lineHeight: 25 }}>
                       {k.title}
                     </Txt>
-                    <Txt v="body" color={colors.textMuted} style={{ fontSize: 16 }}>
+                    <Txt v="body" color={colors.textMuted} style={{ fontSize: 16.5 }}>
                       {k.subtitle}
                     </Txt>
                   </View>

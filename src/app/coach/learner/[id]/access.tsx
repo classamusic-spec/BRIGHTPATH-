@@ -14,7 +14,8 @@ import { colors, radius } from '@/theme';
 export default function AccessProfileScreen() {
   const learner = useRouteLearner();
   const team = useApp(useShallow((s) => s.team.filter((m) => m.learnerIds.includes(learner.id))));
-  const caregivers = team.filter((m) => m.role === 'parent' || m.role === 'caregiver').length;
+  // Parents, caregivers and coaches all use the Parent/Coach side of the app.
+  const caregivers = team.filter((m) => m.role === 'parent' || m.role === 'caregiver' || m.role === 'coach').length;
   const teachers = team.filter((m) => m.role === 'teacher').length;
   const therapists = team.filter((m) => m.role === 'therapist').length;
   const go = (path: string) => router.push({ pathname: path as never, params: { id: learner.id } } as never);

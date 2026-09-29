@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { AreaIcon, AREA_META, LearnerNav } from '@/components/coach/Kit';
+import { AREA_META, LearnerNav } from '@/components/coach/Kit';
 import { useRouteLearner } from '@/components/coach/useRouteLearner';
 import { Icon } from '@/components/icons/Icon';
 import { GrowthMapScene, GrowthNode, SIGNPOSTS } from '@/components/scenery/GrowthMapScene';
@@ -16,6 +16,13 @@ const LABEL: Record<keyof typeof SIGNPOSTS, string> = {
   emotions: 'Emotional\nSkills',
   independence: 'Independence',
   routines: 'Daily Routines',
+};
+
+const SIGN_ICON: Record<keyof typeof SIGNPOSTS, ReactNode> = {
+  communication: <Icon name="faceTeal" size={42} color="#3DBE77" />,
+  emotions: <Icon name="heartCircle" size={42} />,
+  independence: <Icon name="star" size={42} />,
+  routines: <Icon name="calendarCircle" size={42} />,
 };
 
 const AREAS: SkillArea[] = ['communication', 'emotions', 'independence', 'routines'];
@@ -47,9 +54,9 @@ export default function GrowthMap() {
           return (
             <GrowthNode key={k} x={p.x} y={p.y} anchor="center">
               <View style={{ position: 'absolute', left: -200, width: 400, top: -34, height: 68, alignItems: 'center', justifyContent: 'center' }}>
-                <Tap onPress={() => setOpen(area)} accessibilityLabel={`${AREA_META[area].label} progress`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFFFF', borderRadius: 999, paddingLeft: 8, paddingRight: 18, height: 60, ...shadows.raised }}>
-                  <AreaIcon area={area === 'emotions' ? 'emotions' : area} size={44} />
-                  <Txt v="subheading" color={colors.cobalt} style={{ fontSize: 18, lineHeight: 21 }}>
+                <Tap onPress={() => setOpen(area)} accessibilityLabel={`${AREA_META[area].label} progress`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF', borderRadius: 999, paddingLeft: 8, paddingRight: 16, height: 58, ...shadows.raised }}>
+                  {SIGN_ICON[k]}
+                  <Txt v="subheading" color={colors.cobalt} style={{ fontSize: 17.5, lineHeight: 21 }}>
                     {LABEL[k]}
                   </Txt>
                 </Tap>

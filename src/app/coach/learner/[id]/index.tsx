@@ -125,10 +125,10 @@ export default function LearnerOverview() {
                 </View>
                 {areas.map((a, i) => (
                   <View key={a.area} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12 }} accessible accessibilityLabel={`${AREA_META[a.area].label}: ${a.n ? Math.round(a.score * 100) + '%' : 'not enough evidence'}`}>
-                    <AreaIcon area={a.area === 'communication' ? 'communication' : a.area} size={46} />
+                    <AreaIcon area={a.area} size={46} variant="badge" />
                     <View style={{ flex: 1 }}>
-                      <Txt v="body" color={colors.text} style={{ fontSize: 17, marginBottom: 6 }}>
-                        {AREA_META[a.area].label}
+                      <Txt v="body" color={colors.text} style={{ fontSize: 18.5, marginBottom: 6 }}>
+                        {AREA_META[a.area].badge}
                       </Txt>
                       <ProgressBar value={a.score} color={BAR_COLORS[a.area]} height={14} delay={i * 80} />
                     </View>

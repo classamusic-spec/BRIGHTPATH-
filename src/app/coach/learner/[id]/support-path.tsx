@@ -80,7 +80,7 @@ export default function SupportPathPlanner() {
   };
 
   return (
-    <Screen header={<Header title="Support Path Planner" titleSize="titleSm" subtitle="Build a plan for continued growth." />} footer={<Button title="Next Step" onPress={() => setOpen(plan.currentStep)} />}>
+    <Screen header={<Header title="Support Path Planner" subtitle="Build a plan for continued growth." />}>
       <View style={{ gap: 12, marginTop: 4 }}>
         {STEPS.map((s, i) => {
           const done = plan.completedSteps.includes(s.n);
@@ -89,21 +89,21 @@ export default function SupportPathPlanner() {
             <Appear key={s.n} delay={i * 60}>
               <Tap onPress={() => setOpen(s.n)} accessibilityLabel={`Step ${s.n}: ${s.title}. ${done ? 'Done' : current ? 'Current step' : 'Upcoming'}`} style={[styles.step, current ? styles.current : null]} scale={0.98}>
                 <View style={[styles.num, { backgroundColor: done ? colors.teal : current ? colors.primary : '#6F7FC2' }]}>
-                  <Txt v="title" color="#FFFFFF" style={{ fontSize: 26 }}>
+                  <Txt v="title" color="#FFFFFF" style={{ fontSize: 25 }}>
                     {String(s.n)}
                   </Txt>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Txt v="heading" color="#1320C4" style={{ fontSize: 21 }}>
+                  <Txt v="heading" color="#1320C4" style={{ fontSize: 21, lineHeight: 26 }} numberOfLines={1}>
                     {s.title}
                   </Txt>
-                  <Txt v="body" color={colors.textSoft} style={{ fontSize: 16 }}>
+                  <Txt v="body" color={colors.textSoft} style={{ fontSize: 16, lineHeight: 21 }} numberOfLines={1}>
                     {s.sub}
                   </Txt>
                 </View>
                 {done ? (
                   <View style={styles.done}>
-                    <Icon name="check" size={30} color="#FFFFFF" />
+                    <Icon name="check" size={28} color="#FFFFFF" />
                   </View>
                 ) : null}
               </Tap>
@@ -111,6 +111,7 @@ export default function SupportPathPlanner() {
           );
         })}
       </View>
+      <Button title="Next Step" onPress={() => setOpen(plan.currentStep)} style={{ marginTop: 16 }} />
       <Card style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16 }}>
         <Icon name="sprout" size={70} />
         <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 19 }}>
@@ -178,8 +179,8 @@ export default function SupportPathPlanner() {
 }
 
 const styles = StyleSheet.create({
-  step: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#FFFFFF', borderRadius: radius.lg, padding: 14, minHeight: 96, ...shadows.soft },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#FFFFFF', borderRadius: radius.lg, paddingVertical: 12, paddingLeft: 12, paddingRight: 14, minHeight: 86, ...shadows.soft },
   current: { backgroundColor: '#DDEBFD' },
-  num: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
-  done: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
+  num: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
+  done: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
 });

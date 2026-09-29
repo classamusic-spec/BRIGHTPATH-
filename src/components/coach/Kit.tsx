@@ -49,17 +49,24 @@ export function LearnerNav({ id, active }: { id: string; active: 'home' | 'progr
 
 /* ---------------------------------------------------------- Skill areas */
 
-export const AREA_META: Record<SkillArea, { label: string; short: string; icon: IconName; color: string; bar: string }> = {
-  communication: { label: 'Communication', short: 'Comm', icon: 'chatCircle', color: '#F4793A', bar: colors.mint },
-  emotions: { label: 'Emotions', short: 'Emotions', icon: 'faceTeal', color: '#2FB59A', bar: '#3F86F0' },
-  focus: { label: 'Focus', short: 'Focus', icon: 'star', color: '#F7B731', bar: '#7CCBF4' },
-  social: { label: 'Social Skills', short: 'Social', icon: 'group', color: '#9A6BF0', bar: '#A99BF7' },
-  independence: { label: 'Independence', short: 'Indep', icon: 'starCircle', color: '#F7B731', bar: colors.butter },
-  routines: { label: 'Daily Routines', short: 'Routines', icon: 'calendarCircle', color: '#9A6BF0', bar: '#B28CF4' },
+export const AREA_META: Record<SkillArea, { label: string; short: string; badge: string; icon: IconName; color: string; bar: string }> = {
+  communication: { label: 'Communication', short: 'Comm', badge: 'Communication', icon: 'chatCircle', color: '#F4793A', bar: colors.mint },
+  emotions: { label: 'Emotions', short: 'Emotions', badge: 'Emotions', icon: 'faceTeal', color: '#2FB59A', bar: '#3F86F0' },
+  focus: { label: 'Focus', short: 'Focus', badge: 'Focus', icon: 'star', color: '#F7B731', bar: '#7CCBF4' },
+  social: { label: 'Social Skills', short: 'Social', badge: 'Social Skills', icon: 'group', color: '#9A6BF0', bar: '#A99BF7' },
+  independence: { label: 'Independence', short: 'Indep', badge: 'Independence', icon: 'starCircle', color: '#F7B731', bar: colors.butter },
+  routines: { label: 'Daily Routines', short: 'Routines', badge: 'Routines', icon: 'calendarCircle', color: '#9A6BF0', bar: '#B28CF4' },
 };
 
-export function AreaIcon({ area, size = 40 }: { area: SkillArea; size?: number }) {
-  const m = AREA_META[area];
+/**
+ * Skill-area glyph. `matrix` is the line-icon family used by the Context
+ * Matrix and Progress Report; `badge` is the solid round family used by
+ * Recent Progress and the Weekly Summary.
+ */
+export function AreaIcon({ area, size = 40, variant = 'matrix' }: { area: SkillArea; size?: number; variant?: 'matrix' | 'badge' }) {
+  if (variant === 'badge' && area !== 'social') {
+    return <Icon name={AREA_META[area].icon} size={size} color={area === 'emotions' ? '#35BFC8' : undefined} />;
+  }
   if (area === 'social') {
     return (
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.lavenderSoft, alignItems: 'center', justifyContent: 'center' }}>
@@ -133,11 +140,11 @@ export function StatCard({ icon, value, label, valueColor = colors.tealDeep, sty
   const body = (
     <View style={[styles.stat, style]}>
       {icon}
-      <View style={{ flex: 1, marginLeft: 10 }}>
+      <View style={{ flex: 1, marginLeft: 8 }}>
         <Txt v="number" color={valueColor} style={{ fontSize: 30, lineHeight: 34 }}>
           {value}
         </Txt>
-        <Txt v="body" color={colors.text} style={{ fontSize: 16, lineHeight: 20 }}>
+        <Txt v="body" color={colors.text} style={{ fontSize: 15, lineHeight: 19 }}>
           {label}
         </Txt>
       </View>
@@ -166,5 +173,5 @@ export const coachStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  stat: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.lg, padding: 14, minHeight: 96, ...shadows.soft },
+  stat: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.lg, paddingVertical: 14, paddingLeft: 12, paddingRight: 8, minHeight: 96, ...shadows.soft },
 });

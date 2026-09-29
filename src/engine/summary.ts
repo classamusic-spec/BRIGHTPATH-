@@ -55,8 +55,9 @@ export function areaScore(obs: Observation[], area: SkillArea): { score: number;
   return { score: xs.length ? xs.reduce((s, o) => s + outcomeScore(o), 0) / xs.length : 0, n: xs.length };
 }
 
+/** A celebration is a real-world, independent moment an adult logged as positive. */
 export function isCelebration(o: Observation): boolean {
-  return usable(o) && o.outcome === 'independent' && (o.valence === 'positive' || !!o.realWorld);
+  return usable(o) && o.outcome === 'independent' && !!o.realWorld && o.valence === 'positive';
 }
 
 export function dayCounts(obs: Observation[], weekStart: Date): number[] {

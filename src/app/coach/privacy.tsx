@@ -64,8 +64,8 @@ export default function DataPrivacy() {
           ] as const
         ).map(([icon, title, key], i) => (
           <Appear key={key} delay={i * 60}>
-            <Card onPress={() => setSheet(key)}>
-              <ListRow icon={icon} plainIcon tileSize={52} title={title} onPress={() => setSheet(key)} />
+            <Card>
+              <ListRow icon={icon} plainIcon tileSize={54} titleSize={19.5} title={title} onPress={() => setSheet(key)} style={{ paddingVertical: 14 }} />
             </Card>
           </Appear>
         ))}

@@ -15,16 +15,16 @@ export const GROWTH_VB = { w: 390, h: 520 };
 
 /** Path the fox walks (viewBox units), from the meadow up into the hills. */
 const TRAIL: [number, number][] = [
-  [60, 500],
-  [110, 452],
-  [196, 420],
-  [236, 380],
-  [176, 332],
-  [150, 296],
-  [206, 254],
-  [240, 214],
-  [214, 176],
-  [196, 150],
+  [132, 530],
+  [100, 482],
+  [94, 432],
+  [122, 386],
+  [168, 352],
+  [206, 318],
+  [190, 272],
+  [168, 236],
+  [200, 196],
+  [226, 158],
 ];
 
 function pointAt(t: number): [number, number] {
@@ -37,26 +37,34 @@ function pointAt(t: number): [number, number] {
   return [ax + (bx - ax) * f, ay + (by - ay) * f];
 }
 
+/**
+ * Finn stays on the lower, left-hand stretch of the trail (as on the board)
+ * and only walks as far as the evidence shows.
+ */
+function along(progress: number): [number, number] {
+  return pointAt(0.06 + Math.max(0, Math.min(1, progress)) * 0.3);
+}
+
 export const SIGNPOSTS = {
-  communication: { x: 282, y: 128 },
-  emotions: { x: 300, y: 196 },
-  independence: { x: 276, y: 290 },
-  routines: { x: 262, y: 368 },
+  communication: { x: 268, y: 118 },
+  emotions: { x: 294, y: 196 },
+  independence: { x: 264, y: 284 },
+  routines: { x: 256, y: 366 },
 };
 
 function WalkingFox({ progress }: { progress: number }) {
   const b = useStage();
   const level = useMotionLevel();
-  const start = pointAt(0.08 + progress * 0.52);
+  const start = along(progress);
   const x = useSharedValue(start[0]);
   const y = useSharedValue(start[1]);
   useEffect(() => {
-    const [nx, ny] = pointAt(0.08 + progress * 0.52);
+    const [nx, ny] = along(progress);
     const cfg = { duration: level === 'off' ? 0 : 1600, easing: Easing.inOut(Easing.quad) };
     x.value = withTiming(nx, cfg);
     y.value = withTiming(ny, cfg);
   }, [progress, level, x, y]);
-  const size = 190 * b.scale;
+  const size = 228 * b.scale;
   const style = useAnimatedStyle(() => ({
     position: 'absolute',
     left: b.left + x.value * b.scale - size / 2,
@@ -107,28 +115,28 @@ export function GrowthMapScene({ progress, style, children }: { progress: number
         <Path d="M 0 240 C 100 226 220 236 390 250 L 390 520 L 0 520 Z" fill="#B4E295" opacity={0.6} />
         <Path d={trail} stroke={SCENE.pathEdge} strokeWidth={34} strokeLinecap="round" strokeLinejoin="round" fill="none" />
         <Path d={trail} stroke={SCENE.path} strokeWidth={27} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        <Tree x={24} y={174} h={96} />
-        <Tree x={70} y={186} h={70} tone="light" />
-        <Tree x={110} y={170} h={82} />
-        <Tree x={18} y={262} h={80} tone="light" />
-        <Tree x={60} y={290} h={100} />
-        <Tree x={112} y={230} h={50} tone="light" />
-        <Tree x={362} y={170} h={92} />
-        <Tree x={376} y={276} h={80} tone="light" />
-        <Tree x={348} y={390} h={96} />
-        <Tree x={20} y={420} h={90} />
-        <Tree x={370} y={470} h={74} tone="light" />
-        <Bush x={140} y={200} s={0.9} tone="deep" />
-        <Bush x={340} y={220} s={0.8} />
-        <Bush x={40} y={508} s={1.3} tone="deep" />
-        <Bush x={300} y={510} s={1.1} />
-        <Bush x={200} y={500} s={0.9} tone="light" />
-        <Tuft x={140} y={380} s={1.2} />
-        <Tuft x={320} y={450} s={1.1} />
+        <Tree x={22} y={176} h={96} />
+        <Tree x={64} y={188} h={70} tone="light" />
+        <Tree x={112} y={172} h={82} />
+        <Tree x={250} y={170} h={60} tone="light" />
+        <Tree x={362} y={172} h={92} />
+        <Tree x={16} y={300} h={84} tone="light" />
+        <Tree x={376} y={272} h={80} tone="light" />
+        <Tree x={352} y={404} h={96} />
+        <Tree x={18} y={452} h={92} />
+        <Tree x={232} y={452} h={66} tone="light" />
+        <Tree x={372} y={488} h={74} tone="light" />
+        <Bush x={146} y={202} s={0.9} tone="deep" />
+        <Bush x={336} y={226} s={0.8} />
+        <Bush x={44} y={512} s={1.3} tone="deep" />
+        <Bush x={300} y={512} s={1.1} />
+        <Bush x={206} y={506} s={0.9} tone="light" />
+        <Tuft x={252} y={392} s={1.2} />
+        <Tuft x={322} y={456} s={1.1} />
         <G>
-          <Star5 cx={210} cy={470} r={8} fill="#FBE27A" />
-          <Star5 cx={108} cy={342} r={6} fill="#FBE27A" />
-          <Star5 cx={236} cy={300} r={5} fill="#FBE27A" />
+          <Star5 cx={262} cy={480} r={8} fill="#FBE27A" />
+          <Star5 cx={60} cy={380} r={6} fill="#FBE27A" />
+          <Star5 cx={236} cy={250} r={5} fill="#FBE27A" />
         </G>
         {Object.values(SIGNPOSTS).map((p, i) => (
           <Path key={i} d={`M ${p.x - 60} ${p.y + 16} L ${p.x - 60} ${p.y + 50}`} stroke="#2F3C7A" strokeWidth={5} strokeLinecap="round" />

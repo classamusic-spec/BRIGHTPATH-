@@ -28,19 +28,19 @@ export default function Notifications() {
     { key: 'coachMessages', icon: 'chatBlue', title: 'Coach Messages', sub: 'Tips and encouragement' },
   ];
   return (
-    <Screen header={<Header title="Notifications / Schedule" titleSize="titleSm" />}>
+    <Screen header={<Header title="Notifications / Schedule" />}>
       <Card style={{ overflow: 'hidden' }}>
         {toggles.map((t, i) => (
           <Appear key={t.key} delay={i * 50} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.lineSoft } : null}>
-            <ListRow icon={t.icon} plainIcon tileSize={54} title={t.title} subtitle={t.sub} right={<Toggle value={prefs[t.key]} onChange={(v) => set({ [t.key]: v })} label={t.title} />} style={{ paddingVertical: 14 }} />
+            <ListRow icon={t.icon} plainIcon tileSize={58} titleSize={19.5} title={t.title} subtitle={t.sub} right={<Toggle value={prefs[t.key]} onChange={(v) => set({ [t.key]: v })} label={t.title} />} style={{ paddingVertical: 14 }} />
           </Appear>
         ))}
       </Card>
-      <Card style={{ marginTop: 12 }} onPress={() => setSheet('quiet')}>
-        <ListRow icon="moon" plainIcon tileSize={54} title="Quiet Hours" subtitle={`${label12(prefs.quietHours.start)} — ${label12(prefs.quietHours.end)}`} onPress={() => setSheet('quiet')} />
+      <Card style={{ marginTop: 12 }}>
+        <ListRow icon="moon" plainIcon tileSize={58} titleSize={19.5} title="Quiet Hours" subtitle={`${label12(prefs.quietHours.start)} — ${label12(prefs.quietHours.end)}`} onPress={() => setSheet('quiet')} />
       </Card>
-      <Card style={{ marginTop: 12 }} onPress={() => setSheet('schedule')}>
-        <ListRow icon="clockOutline" plainIcon tileSize={54} title="Reminder Schedule" subtitle="Set times that work for you" onPress={() => setSheet('schedule')} />
+      <Card style={{ marginTop: 12 }}>
+        <ListRow icon="clockOutline" plainIcon tileSize={58} titleSize={19.5} title="Reminder Schedule" subtitle="Set times that work for you" onPress={() => setSheet('schedule')} />
       </Card>
       <Card style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderRadius: radius.lg }}>
         <Icon name="heart" size={70} />

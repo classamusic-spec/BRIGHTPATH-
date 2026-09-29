@@ -51,7 +51,7 @@ export default function Interests() {
                 accessibilityLabel={it.label}
                 style={[styles.tile, { backgroundColor: on ? tones[tone === 'white' ? 'blue' : tone].bg : '#FFFFFF', borderColor: on ? tones[tone === 'white' ? 'blue' : tone].border : 'transparent' }]}
               >
-                <Icon name={ICON[it.id]} size={104} />
+                <Icon name={ICON[it.id]} size={92} />
                 <Txt v="heading" color={colors.text} style={{ marginTop: 10, fontSize: 22, fontFamily: 'Nunito_700Bold' }}>
                   {it.label}
                 </Txt>

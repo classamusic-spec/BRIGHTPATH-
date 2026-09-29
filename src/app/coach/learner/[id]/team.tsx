@@ -58,7 +58,7 @@ export default function Team() {
                   {m.pending ? `${m.title} · invited` : m.title}
                 </Txt>
               </View>
-              <View style={{ backgroundColor: '#E6EEFB', borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 10 }}>
+              <View style={{ backgroundColor: '#E6EEFB', borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10 }}>
                 <Txt v="label" color={colors.text} style={{ fontSize: 16 }}>
                   {PERM_LABEL[m.permission]}
                 </Txt>

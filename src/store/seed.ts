@@ -164,6 +164,8 @@ export function buildSeed(now: Date = new Date()): SeedData {
     title: 'Use kind words when feeling upset',
     notes: 'Alex is learning to pause and use kind words during challenging moments.',
     supportLevel: 3,
+    // Due now, so it is Today's Mission.
+    spaced: { index: 2, nextDue: new Date(now.getTime() - 2 * 3600 * 1000).toISOString() },
   });
   const gHelp = goalFromTemplate('goal-ask-help', ALEX_ID, 'request-help', now, { createdDaysAgo: 70, supportLevel: 2 });
   const gCalm = goalFromTemplate('goal-calm-tool', ALEX_ID, 'choose-support-tool', now, {
@@ -230,10 +232,12 @@ export function buildSeed(now: Date = new Date()): SeedData {
     independence: { home: 'some', school: 'growing', social: 'some', outdoors: 'needs' },
     routines: { home: 'growing', school: 'some', social: 'some', outdoors: 'growing' },
   };
+  // Each recipe lands in its target band (see cellStatus): strong ≈ 0.95 over
+  // 4 observations, growing ≈ 0.85 over 3, some ≈ 0.55, needs ≈ 0.25.
   const recipe: Record<Exclude<Target, 'none'>, [Outcome, SupportLevel][]> = {
-    strong: [['independent', 1], ['independent', 1], ['independent', 2], ['independent', 1], ['supported', 2]],
-    growing: [['independent', 2], ['supported', 3], ['independent', 1], ['supported', 3]],
-    some: [['supported', 4], ['partial', 5], ['supported', 3], ['independent', 2]],
+    strong: [['independent', 1], ['independent', 1], ['independent', 2], ['supported', 2]],
+    growing: [['independent', 2], ['supported', 3], ['supported', 3]],
+    some: [['supported', 4], ['partial', 5], ['supported', 3]],
     needs: [['partial', 5], ['notDemonstrated', 6], ['supported', 6]],
   };
   const areaGoal: Partial<Record<SkillArea, GrowthGoal>> = {
@@ -257,7 +261,8 @@ export function buildSeed(now: Date = new Date()): SeedData {
     independence: ['Packed the backpack with the picture list.', 'Put shoes on with one reminder.', 'Found the lunchbox on their own.'],
     routines: ['Followed the morning steps with the picture schedule.', 'Brushed teeth, then chose a story.', 'Moved from play to dinner with First-Then.'],
   };
-  let day = 1;
+  // Spread over ~7 weeks; tricky moments skew older, so recent weeks read as growth.
+  const dayFor = (outcome: Outcome) => (outcome === 'partial' || outcome === 'notDemonstrated' ? 22 + Math.floor(rand() * 26) : 1 + Math.floor(rand() * 47));
   for (const area of Object.keys(matrix) as SkillArea[]) {
     for (const setting of Object.keys(matrix[area]) as Setting[]) {
       const target = matrix[area][setting];
@@ -266,7 +271,6 @@ export function buildSeed(now: Date = new Date()): SeedData {
         continue;
       }
       for (const [outcome, support] of recipe[target]) {
-        day = (day % 27) + 1;
         const valence: Valence = outcome === 'independent' ? 'positive' : outcome === 'supported' ? pick(['positive', 'neutral'] as Valence[]) : 'challenging';
         add({
           learnerId: ALEX_ID,
@@ -281,19 +285,22 @@ export function buildSeed(now: Date = new Date()): SeedData {
           title: pick(titles[setting]),
           note: pick(notes[area]),
           tags: area === 'emotions' && outcome !== 'notDemonstrated' ? ['deep-breathing'] : [],
-          at: at(day),
+          at: at(dayFor(outcome)),
         });
       }
     }
   }
   // Retention probe for Ask for help (remembered after a week).
   add({ learnerId: ALEX_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'school', context: { setting: 'school', person: 'teacher' }, realWorld: true, delayDays: 7, valence: 'positive', title: 'Classroom', note: 'Raised the Help card without a reminder after a week off.', at: at(9, 10) });
-  add({ learnerId: ALEX_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'home', context: { setting: 'home', person: 'parent' }, realWorld: true, valence: 'positive', title: 'Getting Ready', note: 'Asked “Can you help me, please?” with a stuck zipper.', at: at(2, 8) });
+  add({ learnerId: ALEX_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'school', context: { setting: 'school', person: 'teacher' }, realWorld: true, valence: 'positive', title: 'Classroom', note: 'Asked “Can you help me, please?” with a stuck zipper.', at: at(2, 8) });
+  // Last complete week always has independence and routine moments (7 days ago is always in it).
+  add({ learnerId: ALEX_ID, skillArea: 'independence', outcome: 'supported', supportLevel: 4, source: 'home', context: { setting: 'home', person: 'parent' }, realWorld: true, valence: 'positive', title: 'Getting Ready', note: 'Packed the backpack with the picture list.', at: at(7, 8, 5) });
+  add({ learnerId: ALEX_ID, goalId: gRoutine.id, skillArea: 'routines', outcome: 'independent', supportLevel: 2, missionId: 'morning-road', modality: 'tap', at: at(7, 17, 30) });
   // The reference moment on Real-World Observation.
   add({
     learnerId: ALEX_ID,
     goalId: gKind.id,
-    skillArea: 'social',
+    skillArea: 'communication',
     outcome: 'independent',
     supportLevel: 1,
     source: 'home',
@@ -347,7 +354,6 @@ export function buildSeed(now: Date = new Date()): SeedData {
     { id: 'tm-mrs-taylor', name: 'Mrs. Taylor', role: 'teacher', title: 'Teacher', permission: 'edit', avatar: 'mrsTaylor', learnerIds: [ALEX_ID] },
     { id: 'tm-dr-kim', name: 'Dr. Kim', role: 'therapist', title: 'Therapist', permission: 'edit', avatar: 'drKim', learnerIds: [ALEX_ID] },
     { id: 'tm-jordan', name: 'Coach Jordan', role: 'coach', title: 'Coach', permission: 'view', avatar: 'jordan', learnerIds: [ALEX_ID] },
-    { id: 'tm-sam', name: 'Sam Rivera', role: 'caregiver', title: 'Caregiver', permission: 'edit', avatar: 'jordan', learnerIds: [ALEX_ID] },
   ];
 
   const plans: SupportPathPlan[] = [

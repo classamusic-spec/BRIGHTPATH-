@@ -68,7 +68,7 @@ export function RewardsProfile({
 
       <Appear delay={80}>
         <Card onPress={onStars} style={{ marginTop: 16 }} accessibilityLabel={`My Stars: ${rewards.stars}`}>
-          <ListRow icon="star" plainIcon tileSize={46} title="My Stars" value={String(rewards.stars)} right={<Icon name="chevronRight" size={22} color={colors.cobalt} />} />
+          <ListRow icon="star" plainIcon tileSize={50} titleSize={21} title="My Stars" value={String(rewards.stars)} right={<Icon name="chevronRight" size={24} color={colors.cobalt} />} />
         </Card>
       </Appear>
 
@@ -111,13 +111,14 @@ export function RewardsProfile({
       </Appear>
 
       <Appear delay={200}>
-        <Card onPress={onInterests} style={{ marginTop: 14 }}>
+        <Card style={{ marginTop: 14 }}>
           <ListRow
             iconNode={
               <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: colors.lavenderSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="heart" size={30} />
               </View>
             }
+            titleSize={20.5}
             title="My Interests"
             subtitle={interests ? interests.charAt(0).toUpperCase() + interests.slice(1) : 'Add a few favourites'}
             onPress={onInterests}
@@ -125,8 +126,8 @@ export function RewardsProfile({
         </Card>
       </Appear>
       <Appear delay={240}>
-        <Card onPress={onStrengths} style={{ marginTop: 12 }}>
-          <ListRow icon="trophy" plainIcon tileSize={54} title="My Strengths" subtitle={learner.strengths.length ? learner.strengths.join(', ') : 'Add strengths'} onPress={onStrengths} />
+        <Card style={{ marginTop: 12 }}>
+          <ListRow icon="trophy" plainIcon tileSize={54} titleSize={20.5} title="My Strengths" subtitle={learner.strengths.length ? learner.strengths.join(', ') : 'Add strengths'} onPress={onStrengths} />
         </Card>
       </Appear>
       <Appear delay={300} style={{ marginTop: 14, backgroundColor: colors.skySoft, borderRadius: radius.lg, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', ...shadows.none }}>

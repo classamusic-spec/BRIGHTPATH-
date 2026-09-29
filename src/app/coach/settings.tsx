@@ -27,30 +27,35 @@ export default function Settings() {
     { icon: 'info' as const, title: 'About BrightPath', onPress: () => router.push('/coach/about') },
   ];
   return (
-    <Screen header={<Header title="Settings / Accessibility" titleSize="titleSm" />} footer={<CoachNav active="more" />}>
+    <Screen header={<Header title="Settings / Accessibility" />} footer={<CoachNav active="more" />}>
       <View style={{ gap: 10 }}>
         {rows.map((r, i) => (
           <Appear key={r.title} delay={i * 40}>
-            <Card onPress={r.onPress}>
-              <ListRow icon={r.icon} plainIcon tileSize={50} title={r.title} value={r.value} onPress={r.onPress} />
+            <Card>
+              <ListRow icon={r.icon} plainIcon tileSize={56} titleSize={19.5} title={r.title} value={r.value} onPress={r.onPress} style={{ paddingVertical: 12 }} />
             </Card>
           </Appear>
         ))}
-        <Card onPress={() => router.push('/coach/notifications')}>
-          <ListRow icon="bell" plainIcon tileSize={50} title="Notifications / Schedule" onPress={() => router.push('/coach/notifications')} />
-        </Card>
-        <Card onPress={() => router.push('/coach/privacy')}>
-          <ListRow icon="shield" plainIcon tileSize={50} title="Data & Privacy" onPress={() => router.push('/coach/privacy')} />
-        </Card>
-        <Card onPress={() => router.replace('/kid/home')}>
-          <ListRow icon="star" plainIcon tileSize={50} title="Back to kid mode" subtitle={`Hand the device to ${learner.displayName}`} onPress={() => router.replace('/kid/home')} />
-        </Card>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#FDF1D2', borderRadius: radius.lg, padding: 16, marginTop: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#FDF1D2', borderRadius: radius.lg, padding: 16, marginTop: 12 }}>
         <Icon name="sun" size={66} />
-        <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 18 }}>
+        <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 19, lineHeight: 26 }}>
           {'Built for every child.\nA more inclusive tomorrow.'}
         </Txt>
+      </View>
+      <Txt v="label" color={colors.textMuted} style={{ marginTop: 18, marginBottom: 8, marginLeft: 4 }}>
+        MORE
+      </Txt>
+      <View style={{ gap: 10 }}>
+        <Card>
+          <ListRow icon="bell" plainIcon tileSize={56} titleSize={19.5} title="Notifications / Schedule" onPress={() => router.push('/coach/notifications')} style={{ paddingVertical: 12 }} />
+        </Card>
+        <Card>
+          <ListRow icon="shield" plainIcon tileSize={56} titleSize={19.5} title="Data & Privacy" onPress={() => router.push('/coach/privacy')} style={{ paddingVertical: 12 }} />
+        </Card>
+        <Card>
+          <ListRow icon="star" plainIcon tileSize={56} titleSize={19.5} title="Back to kid mode" subtitle={`Hand the device to ${learner.displayName}`} onPress={() => router.replace('/kid/home')} style={{ paddingVertical: 12 }} />
+        </Card>
       </View>
 
       <Sheet visible={sheet === 'account'} onClose={() => setSheet(null)} title="Account">

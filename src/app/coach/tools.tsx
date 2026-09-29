@@ -29,7 +29,7 @@ export default function Tools() {
       <View style={{ gap: 10 }}>
         {TOOLS.map((t, i) => (
           <Appear key={t.title} delay={i * 35}>
-            <Card onPress={() => router.push({ pathname: t.path as never, params: { id: learner.id } } as never)}>
+            <Card>
               <ListRow icon={t.icon} iconTone={t.tone} title={t.title} subtitle={t.sub} onPress={() => router.push({ pathname: t.path as never, params: { id: learner.id } } as never)} />
             </Card>
           </Appear>

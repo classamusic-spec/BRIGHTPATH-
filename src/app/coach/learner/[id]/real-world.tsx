@@ -84,7 +84,7 @@ export default function RealWorldObservation() {
   };
 
   return (
-    <Screen header={<Header title="Real-World Observation" titleSize="titleSm" />}>
+    <Screen header={<Header title="Real-World Observation" />}>
       <SegmentedTabs
         items={[
           { key: 'observe', label: 'Observe' },
@@ -113,21 +113,21 @@ export default function RealWorldObservation() {
           ) : null}
           {latest ? (
             <Appear>
-              <Card style={{ padding: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <IconTile tone="sky" size={70} radiusPx={18}>
-                    <Icon name="tree" size={48} />
+              <Card style={{ padding: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <IconTile tone="sky" size={58} radiusPx={16}>
+                    <Icon name="tree" size={40} />
                   </IconTile>
                   <View style={{ flex: 1 }}>
-                    <Txt v="heading" color="#1320C4" style={{ fontSize: 21 }}>
+                    <Txt v="heading" color="#1320C4" style={{ fontSize: 20, lineHeight: 25 }} numberOfLines={1}>
                       {latest.title ?? 'Real-world moment'}
                     </Txt>
-                    <Txt v="body" color={colors.textSoft}>
+                    <Txt v="body" color={colors.textSoft} style={{ fontSize: 15 }} numberOfLines={1}>
                       {when(latest.at)}
                     </Txt>
                   </View>
-                  <View style={{ backgroundColor: latest.valence === 'challenging' ? colors.blushSoft : '#DDF6E6', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 }}>
-                    <Txt v="label" color={latest.valence === 'challenging' ? '#C23A5C' : colors.mintDeep}>
+                  <View style={{ backgroundColor: latest.valence === 'challenging' ? colors.blushSoft : '#DDF6E6', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8 }}>
+                    <Txt v="label" color={latest.valence === 'challenging' ? '#C23A5C' : colors.mintDeep} style={{ fontSize: 13.5 }}>
                       {latest.valence === 'challenging' ? 'Tricky Moment' : 'Positive Moment'}
                     </Txt>
                   </View>
@@ -138,9 +138,9 @@ export default function RealWorldObservation() {
                 <Txt v="heading" color="#1320C4" style={{ marginTop: 12, fontSize: 21, lineHeight: 28, fontFamily: 'Nunito_700Bold' }}>
                   {latest.note}
                 </Txt>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
                   {tags.map((t) => (
-                    <Chip key={t} label={t} tone={TAG_META[t]?.tone ?? 'blue'} icon={<Icon name={TAG_META[t]?.icon ?? 'star'} size={22} color={t === 'Social Skills' ? '#2F74E8' : undefined} />} />
+                    <Chip key={t} label={t} size="sm" tone={TAG_META[t]?.tone ?? 'blue'} icon={<Icon name={TAG_META[t]?.icon ?? 'star'} size={17} color={t === 'Social Skills' ? '#2F74E8' : undefined} />} />
                   ))}
                 </View>
                 <View style={{ marginTop: 12 }}>

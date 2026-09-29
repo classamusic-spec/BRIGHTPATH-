@@ -32,13 +32,13 @@ export function SegmentedTabs<T extends string>({
           <Tap
             key={it.key}
             onPress={() => onChange(it.key)}
-            style={[styles.segItem, active ? styles.segActive : null]}
+            style={[styles.segItem, { flex: Math.max(8, it.label.length) }, active ? styles.segActive : null]}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             accessibilityLabel={it.label}
             scale={0.98}
           >
-            <Txt v="label" color={active ? colors.ink : colors.textSoft} numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 16 }}>
+            <Txt v="label" color={active ? colors.ink : colors.textSoft} numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 16.5 }}>
               {it.label}
             </Txt>
             {active ? <View style={styles.segUnderline} /> : null}
@@ -95,7 +95,7 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
   useEffect(() => {
     x.value = level === 'off' ? (value ? 1 : 0) : withSpring(value ? 1 : 0, { damping: 16, stiffness: 220 });
   }, [value, level, x]);
-  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * 26 }] }));
+  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * 28 }] }));
   const track = useAnimatedStyle(() => ({ opacity: 0.35 + x.value * 0.65 }));
   return (
     <Tap
@@ -106,8 +106,8 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
       scale={0.97}
       style={styles.toggle}
     >
-      <View style={[StyleSheet.absoluteFill, { borderRadius: 18, backgroundColor: '#C9D3EA' }]} />
-      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 18, backgroundColor: colors.primary }, track]} />
+      <View style={[StyleSheet.absoluteFill, { borderRadius: 21, backgroundColor: '#C9D3EA' }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 21, backgroundColor: colors.primary }, track]} />
       <Animated.View style={[styles.knob, knob]} />
     </Tap>
   );
@@ -152,18 +152,35 @@ export function ProgressBar({
 
 /* ------------------------------------------------------------- Chips */
 
-export function Chip({ label, tone = 'blue', icon, onPress, selected, style }: { label: string; tone?: Tone; icon?: ReactNode; onPress?: () => void; selected?: boolean; style?: StyleProp<ViewStyle> }) {
+export function Chip({
+  label,
+  tone = 'blue',
+  icon,
+  onPress,
+  selected,
+  size = 'md',
+  style,
+}: {
+  label: string;
+  tone?: Tone;
+  icon?: ReactNode;
+  onPress?: () => void;
+  selected?: boolean;
+  size?: 'sm' | 'md';
+  style?: StyleProp<ViewStyle>;
+}) {
   const t = tones[tone];
   const content = (
     <View
       style={[
         styles.chip,
+        size === 'sm' ? styles.chipSm : null,
         { backgroundColor: selected === false ? '#EEF2F9' : t.bg, borderColor: selected ? t.deep : 'transparent' },
         style,
       ]}
     >
       {icon}
-      <Txt v="label" color={selected === false ? colors.textMuted : tone === 'blush' ? '#D8456A' : tone === 'mint' ? colors.mintDeep : colors.text} style={{ fontSize: 14 }}>
+      <Txt v="label" color={selected === false ? colors.textMuted : tone === 'blush' ? '#D8456A' : tone === 'mint' ? colors.mintDeep : colors.text} style={{ fontSize: size === 'sm' ? 12.5 : 14 }}>
         {label}
       </Txt>
     </View>
@@ -222,6 +239,7 @@ export function ListRow({
   right,
   onPress,
   tileSize = 50,
+  titleSize = 19,
   style,
   plainIcon,
 }: {
@@ -234,6 +252,8 @@ export function ListRow({
   right?: ReactNode;
   onPress?: () => void;
   tileSize?: number;
+  /** Title font size; the subtitle follows 3pt smaller. */
+  titleSize?: number;
   style?: StyleProp<ViewStyle>;
   plainIcon?: boolean;
 }) {
@@ -242,21 +262,21 @@ export function ListRow({
     <View style={[styles.row, style]}>
       {iconEl}
       <View style={{ flex: 1, marginLeft: iconEl ? 14 : 0 }}>
-        <Txt v="subheading" color={colors.ink} style={{ fontSize: 18 }} numberOfLines={2}>
+        <Txt v="subheading" color={colors.ink} style={{ fontSize: titleSize, lineHeight: Math.round(titleSize * 1.3) }} numberOfLines={2}>
           {title}
         </Txt>
         {subtitle ? (
-          <Txt v="bodySm" color={colors.textMuted} style={{ fontSize: 15, marginTop: 1 }} numberOfLines={2}>
+          <Txt v="bodySm" color={colors.textMuted} style={{ fontSize: titleSize - 3, lineHeight: Math.round((titleSize - 3) * 1.32), marginTop: 1 }} numberOfLines={2}>
             {subtitle}
           </Txt>
         ) : null}
       </View>
       {value ? (
-        <Txt v="body" color={colors.textSoft} style={{ marginRight: 8 }}>
+        <Txt v="body" color={colors.textSoft} style={{ marginRight: 8, fontSize: titleSize - 2 }}>
           {value}
         </Txt>
       ) : null}
-      {right ?? (onPress ? <Icon name="chevronRight" size={22} color={colors.cobalt} /> : null)}
+      {right ?? (onPress ? <Icon name="chevronRight" size={24} color={colors.cobalt} /> : null)}
     </View>
   );
   if (!onPress) return body;
@@ -281,9 +301,10 @@ const styles = StyleSheet.create({
   pillTrack: { flexDirection: 'row', backgroundColor: '#E3ECFA', borderRadius: radius.pill, padding: 4, height: 46 },
   pillItem: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
   pillActive: { backgroundColor: colors.primary, ...shadows.button },
-  toggle: { width: 58, height: 34, borderRadius: 18, justifyContent: 'center' },
-  knob: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF', marginLeft: 3, ...shadows.soft },
+  toggle: { width: 68, height: 40, borderRadius: 21, justifyContent: 'center' },
+  knob: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFFFFF', marginLeft: 3, ...shadows.soft },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: radius.pill, borderWidth: 1.5 },
+  chipSm: { gap: 4, paddingHorizontal: 8, height: 32, borderWidth: 0 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, height: 40, borderRadius: radius.pill, alignSelf: 'flex-start' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14 },
 });

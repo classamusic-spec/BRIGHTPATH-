@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Icon } from '@/components/icons/Icon';
-import { colors, GUTTER } from '@/theme';
+import { fitFontSize } from '@/lib/fitText';
+import { colors, fonts, GUTTER } from '@/theme';
 
 import { Tap } from './Tap';
 import { Txt } from './Txt';
@@ -83,9 +84,14 @@ export function BackButton({ onPress, color = colors.ink }: { onPress?: () => vo
   );
 }
 
+/** Largest header title size, matching the boards (≈29pt on a 390pt phone). */
+const TITLE_MAX = { title: 29, titleSm: 25 } as const;
+const TITLE_MIN = 18;
+
 /**
  * Screen header: back chevron, centred title, optional subtitle and a right
- * slot (e.g. My Tools, settings or ••• menu).
+ * slot (e.g. My Tools, settings or ••• menu). Long titles shrink to stay on
+ * one line — natively via adjustsFontSizeToFit, on web by measuring the text.
  */
 export function Header({
   title,
@@ -106,13 +112,26 @@ export function Header({
   titleSize?: 'title' | 'titleSm';
   style?: StyleProp<ViewStyle>;
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const [titleWidth, setTitleWidth] = useState(0);
+  const max = TITLE_MAX[titleSize];
+  const available = (titleWidth || windowWidth - 24 - 2 * SIDE) - 4;
+  const fontSize = title ? fitFontSize(title, fonts.black, max, TITLE_MIN, available, -0.3) : max;
   return (
     <View style={[styles.header, style]}>
       <View style={styles.headerRow}>
         <View style={styles.side}>{back ? <BackButton onPress={onBack} /> : null}</View>
-        <View style={[styles.titleWrap, align === 'left' ? { alignItems: 'flex-start' } : null]}>
+        <View style={[styles.titleWrap, align === 'left' ? { alignItems: 'flex-start' } : null]} onLayout={(e) => setTitleWidth(e.nativeEvent.layout.width)}>
           {title ? (
-            <Txt v={titleSize} center={align === 'center'} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">
+            <Txt
+              v="title"
+              center={align === 'center'}
+              numberOfLines={1}
+              adjustsFontSizeToFit={Platform.OS !== 'web'}
+              minimumFontScale={TITLE_MIN / max}
+              accessibilityRole="header"
+              style={{ fontSize, lineHeight: Math.round(fontSize * 1.22) }}
+            >
               {title}
             </Txt>
           ) : null}
@@ -120,7 +139,7 @@ export function Header({
         <View style={[styles.side, { alignItems: 'flex-end' }]}>{right}</View>
       </View>
       {subtitle ? (
-        <Txt v="bodyLg" color={colors.textSoft} center style={{ marginTop: 2, paddingHorizontal: 24 }}>
+        <Txt v="bodyLg" color={colors.textSoft} center style={{ marginTop: 2, paddingHorizontal: 20, fontSize: 18.5, lineHeight: 25 }}>
           {subtitle}
         </Txt>
       ) : null}
@@ -128,12 +147,14 @@ export function Header({
   );
 }
 
+const SIDE = 50;
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
-  header: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
-  side: { width: 52, justifyContent: 'center' },
+  header: { paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 46 },
+  side: { width: SIDE, justifyContent: 'center' },
   titleWrap: { flex: 1, alignItems: 'center' },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });

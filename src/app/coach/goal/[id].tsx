@@ -67,10 +67,10 @@ export default function GoalDetails() {
       }
     >
       <Appear>
-        <Card style={{ padding: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <IconTile tone="mint" size={84} radiusPx={22}>
-              <Icon name="chat" size={60} />
+        <Card style={{ padding: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <IconTile tone="mint" size={76} radiusPx={20}>
+              <Icon name="chat" size={54} />
             </IconTile>
             <Txt v="heading" color="#1320C4" style={{ flex: 1, fontSize: 22, lineHeight: 28 }}>
               {goal.title}
@@ -81,7 +81,7 @@ export default function GoalDetails() {
                 setNotes(goal.notes);
                 setEdit(true);
               }}
-              style={{ backgroundColor: colors.primarySoft, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 }}
+              style={{ backgroundColor: colors.primarySoft, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 }}
               accessibilityLabel="Edit goal"
             >
               <Txt v="label" color={colors.text}>
