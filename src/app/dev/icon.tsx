@@ -6,7 +6,7 @@ import { Fox } from '@/components/characters/fox/Fox';
 
 type Variant = 'icon' | 'adaptive-fg' | 'adaptive-bg' | 'splash';
 
-/** Finn's head size (as a share of the canvas) for each asset. */
+/** The fox's head size (as a share of the canvas) for each asset. */
 const HEAD: Record<Variant, number> = { icon: 0.9, 'adaptive-fg': 0.66, 'adaptive-bg': 0, splash: 0.92 };
 
 /** Soft sky with a sunrise glow — the backdrop of the app icon. */
@@ -49,7 +49,7 @@ function IconBackdrop({ s }: { s: number }) {
 
 /**
  * Dev-only artwork renderer used to produce the app icon, Android adaptive
- * icon layers and splash image from the real Finn rig (see README).
+ * icon layers and splash image from the real fox rig (see README).
  * Params: variant, px (canvas size), bg (flat background for alpha matting).
  */
 export default function IconArt() {
@@ -63,7 +63,7 @@ export default function IconArt() {
       {backdrop ? <IconBackdrop s={s} /> : null}
       {head > 0 ? (
         <View style={{ position: 'absolute', left: 0, top: 0, width: s, height: s, alignItems: 'center', justifyContent: 'center', paddingTop: variant === 'icon' ? s * 0.04 : 0 }}>
-          <Fox pose="head" size={head} motion="off" interactive={false} accessibilityLabel="Finn the fox" />
+          <Fox pose="head" size={head} motion="off" interactive={false} accessibilityLabel="BrightPath fox" />
         </View>
       ) : null}
     </View>

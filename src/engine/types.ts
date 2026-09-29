@@ -229,7 +229,7 @@ export interface AccessProfile {
   readAloud: boolean;
 }
 
-export type BuddyId = 'finn' | 'pip' | 'tilly' | 'roo';
+export type BuddyId = 'maple' | 'pip' | 'tilly' | 'roo';
 
 export type InterestId =
   | 'animals'

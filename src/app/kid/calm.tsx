@@ -11,6 +11,7 @@ import { Appear, Button, FitBox, Header, Sheet, Tap, Txt } from '@/components/ui
 import { selectHaptic } from '@/lib/feedback';
 import { useMotionLevel } from '@/lib/motion';
 import { AMBIENT, playSound } from '@/lib/sound';
+import { GUIDE } from '@/content/cast';
 import { speak } from '@/lib/speech';
 import { useApp } from '@/store';
 import { colors, GUTTER, radius, shadows, tones } from '@/theme';
@@ -60,7 +61,7 @@ function BreatheModule({ breath }: { breath: SharedValue<number> }) {
         </Txt>
       </View>
       <Txt v="body" center color={colors.textSoft} style={{ marginTop: 10 }}>
-        Follow the circle with Finn. Stop any time.
+        {`Follow the circle with ${GUIDE.name}. Stop any time.`}
       </Txt>
     </View>
   );

@@ -27,7 +27,7 @@ const SIGN_ICON: Record<keyof typeof SIGNPOSTS, ReactNode> = {
 
 const AREAS: SkillArea[] = ['communication', 'emotions', 'independence', 'routines'];
 
-/** 31 · Growth Map — Finn walks as far as the evidence shows, never further. */
+/** 31 · Growth Map — the fox walks as far as the evidence shows, never further. */
 export default function GrowthMap() {
   const learner = useRouteLearner();
   const [range, setRange] = useState<RangeKey>('1M');

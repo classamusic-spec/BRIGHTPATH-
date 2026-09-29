@@ -6,6 +6,7 @@ import { Fox } from '@/components/characters/fox/Fox';
 import { BrandBlock } from '@/components/kid/Brand';
 import { Landscape, LANDSCAPES } from '@/components/scenery/Landscape';
 import { Appear, Button, FitBox, Txt } from '@/components/ui';
+import { GUIDE } from '@/content/cast';
 import { speak } from '@/lib/speech';
 import { useApp } from '@/store';
 import { colors, GUTTER } from '@/theme';
@@ -24,7 +25,7 @@ export default function Splash() {
         </Appear>
         <FitBox style={styles.hero} aspect={0.86} max={390} min={220}>
           {(size) => (
-            <Fox pose="wave" size={size} onPress={() => speak('Hi! I’m Finn. Let’s play, practice and feel good together!')} accessibilityLabel="Finn the fox waving hello. Tap to say hi." />
+            <Fox pose="wave" size={size} onPress={() => speak(`Hi! I’m ${GUIDE.name}. Let’s play, practice and feel good together!`)} accessibilityLabel={`${GUIDE.name} the fox waving hello. Tap to say hi.`} />
           )}
         </FitBox>
         <Appear delay={250}>

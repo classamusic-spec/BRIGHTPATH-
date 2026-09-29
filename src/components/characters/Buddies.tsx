@@ -1,6 +1,6 @@
 /**
  * Supporting buddies: Pip (penguin), Tilly (turtle) and Roo (puppy).
- * Same layered rig as Finn so they breathe, blink and wiggle on the UI thread.
+ * Same layered rig as the guide fox so they breathe, blink and wiggle on the UI thread.
  */
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useAnimatedStyle } from 'react-native-reanimated';

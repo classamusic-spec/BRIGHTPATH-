@@ -1,7 +1,7 @@
 # BrightPath
 
 **Play. Practice. Feel Good.** BrightPath is a strengths-based learning app for
-social, emotional and everyday life skills. Children practise with Finn the fox
+social, emotional and everyday life skills. Children practise with Maple the fox
 in short, calm missions; parents, caregivers and coaches get plain-language
 evidence, explainable next steps and planning tools.
 
@@ -59,13 +59,13 @@ has something to show; adults can delete it (or load it again) from
 Five missions are included: _Be Kind at Home_, _Pip's Tower_, _Help Hero_,
 _Routine Road_ and _Flexi-Fix_.
 
-## Finn and friends
+## Maple and friends
 
-Finn is a layered vector rig (`react-native-svg`) animated on the UI thread
+Maple (named in `src/content/cast.ts`) is a layered vector rig (`react-native-svg`) animated on the UI thread
 with Reanimated: breathing, blinking, ear twitches, tail sway and an idle bob
 run all the time, and poses cover waving, walking, jumping, cheering,
-meditating (he breathes with the Calm Space guide), reading (pages flip) and
-sleeping. Tapping Finn makes him hop and smile. Pip the penguin, Tilly the
+meditating (breathing along with the Calm Space guide), reading (pages flip) and
+sleeping. Tap Maple for a happy hop and smile. Pip the penguin, Tilly the
 turtle, Roo the puppy and Aiden are rigged the same way, and the scenery
 (clouds, trees, rivers, flags, fireflies) moves gently.
 

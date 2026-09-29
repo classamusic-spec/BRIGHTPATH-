@@ -1,5 +1,5 @@
 /**
- * Finn the fox — vector parts.
+ * The guide fox (see content/cast.ts) — vector parts.
  *
  * Head parts are authored in a local frame centred on the face (eyes at y≈2,
  * chin at y≈56, ear tips at y≈-100). Body parts are authored per pose in the

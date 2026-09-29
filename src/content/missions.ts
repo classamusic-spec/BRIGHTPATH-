@@ -6,6 +6,7 @@
  * Release status is "pilot": content has passed automated checks but still
  * needs professional, editorial and user review before an "approved" claim.
  */
+import { GUIDE } from './cast';
 import type { Mission } from './types';
 
 const COMMON = {
@@ -289,6 +290,7 @@ export const MISSIONS: Mission[] = [
     promptLevels: [...COMMON.promptLevels],
     interaction: [...COMMON.interaction],
     id: 'help-hero',
+    version: '2.0.1', // guide renamed
     durationMin: [4, 7],
     questId: 'communication',
     title: 'Help Hero',
@@ -323,7 +325,7 @@ export const MISSIONS: Mission[] = [
         id: 'scene-1',
         type: 'scenario',
         scene: 'shelf',
-        text: 'Finn wants the book on the top shelf, but can’t reach it. What could Finn do?',
+        text: `${GUIDE.name} wants the book on the top shelf, but can’t reach it. What could ${GUIDE.name} do?`,
         round: 1,
         rounds: 2,
         cta: 'Let’s choose',
@@ -523,6 +525,7 @@ export const MISSIONS: Mission[] = [
     promptLevels: [...COMMON.promptLevels],
     interaction: [...COMMON.interaction],
     id: 'flexi-fix',
+    version: '2.0.1', // guide renamed
     durationMin: [2, 4],
     questId: 'confidence',
     title: 'Flexi-Fix',
@@ -544,7 +547,7 @@ export const MISSIONS: Mission[] = [
         id: 'scene-1',
         type: 'scenario',
         scene: 'playground',
-        text: 'The slide is closed today! Finn really wanted to slide. What could Finn do?',
+        text: `The slide is closed today! ${GUIDE.name} really wanted to slide. What could ${GUIDE.name} do?`,
         round: 1,
         rounds: 1,
         cta: 'Let’s choose',

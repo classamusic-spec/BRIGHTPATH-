@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { BUDDIES, BuddyPortrait } from '@/components/kid/Buddy';
 import { Appear, Button, CheckBadge, Header, Screen, Tap, Txt } from '@/components/ui';
+import { GUIDE } from '@/content/cast';
 import type { BuddyId } from '@/engine/types';
 import { playSound } from '@/lib/sound';
 import { speak } from '@/lib/speech';
@@ -14,7 +15,7 @@ import { colors, radius } from '@/theme';
 export default function ChooseBuddy() {
   const learner = useLearner();
   const chooseBuddy = useApp((s) => s.chooseBuddy);
-  const [picked, setPicked] = useState<BuddyId>(learner.buddy ?? 'finn');
+  const [picked, setPicked] = useState<BuddyId>(learner.buddy ?? GUIDE.id);
 
   return (
     <Screen

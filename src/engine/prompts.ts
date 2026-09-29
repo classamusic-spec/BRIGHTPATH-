@@ -11,7 +11,7 @@ export const SUPPORT_LADDER: { level: SupportLevel; key: string; label: string; 
   { level: 2, key: 'environmental', label: 'Environmental cue', kid: 'A little clue' },
   { level: 3, key: 'visual', label: 'Visual cue', kid: 'Picture hint' },
   { level: 4, key: 'gestural', label: 'Gestural cue', kid: 'Pointing hint' },
-  { level: 5, key: 'model', label: 'Model', kid: 'Watch Finn' },
+  { level: 5, key: 'model', label: 'Model', kid: 'Watch and copy' },
   { level: 6, key: 'verbal', label: 'Brief verbal guidance', kid: 'Talk it through' },
   { level: 7, key: 'adult', label: 'Adult-supported', kid: 'Together' },
 ];

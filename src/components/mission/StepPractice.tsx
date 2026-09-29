@@ -94,7 +94,7 @@ function NumberDot({ n, active, done }: { n: number; active: boolean; done: bool
   );
 }
 
-/** 15 · Supported Try — guided deep breathing with Finn (fox breathes in sync). */
+/** 15 · Supported Try — guided deep breathing with the guide fox (breathes in sync). */
 function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
   const level = useMotionLevel();
   const breath = useSharedValue(0);

@@ -38,7 +38,7 @@ function pointAt(t: number): [number, number] {
 }
 
 /**
- * Finn stays on the lower, left-hand stretch of the trail (as on the board)
+ * The fox stays on the lower, left-hand stretch of the trail (as on the board)
  * and only walks as far as the evidence shows.
  */
 function along(progress: number): [number, number] {

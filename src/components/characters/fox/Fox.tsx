@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Ellipse, G, Path } from 'react-native-svg';
 
+import { GUIDE } from '@/content/cast';
 import { tapHaptic } from '@/lib/feedback';
 import { useMotionLevel, type MotionLevel } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
@@ -736,7 +737,7 @@ export function Fox({
   backpack = true,
   wavePaw = false,
   style,
-  accessibilityLabel = 'Finn the fox',
+  accessibilityLabel = `${GUIDE.name} the fox`,
 }: FoxProps) {
   const level = useMotionLevel(motion);
   const a = useFoxAnim(pose, level, breath);

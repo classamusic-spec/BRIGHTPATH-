@@ -31,6 +31,7 @@ import {
 } from '@/engine/types';
 
 import { DEFAULT_ACCESS, DEFAULT_NOTIFICATIONS, EMPTY_REWARDS } from './defaults';
+import { migrateStore, STORE_VERSION } from './migrations';
 import { ALEX_ID, buildSeed } from './seed';
 
 export interface RealWorldQuest {
@@ -127,7 +128,7 @@ function blankLearner(): Learner {
   return {
     id: uid('learner'),
     displayName: 'Friend',
-    buddy: 'finn',
+    buddy: 'maple',
     interests: [],
     strengths: [],
     band: 'B',
@@ -363,7 +364,8 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'brightpath-v2',
-      version: 2,
+      version: STORE_VERSION,
+      migrate: (persisted, fromVersion) => migrateStore(persisted as Partial<AppData>, fromVersion) as AppState,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => {
         const out: Partial<AppData> = {};
