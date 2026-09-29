@@ -1,0 +1,839 @@
+import { useCallback, useState, type ReactNode } from 'react';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
+import Svg, { Ellipse, G, Path } from 'react-native-svg';
+
+import { tapHaptic } from '@/lib/feedback';
+import { useMotionLevel, type MotionLevel } from '@/lib/motion';
+import { useUid } from '@/lib/uid';
+
+import { Layer, pivot, Rig, type LayerStyle } from '../Layer';
+import { useBlink, useHop, useOscillator, usePhase, useTwitch, useWave } from '../anim';
+import {
+  Backpack,
+  Blush,
+  Ear,
+  EAR_PIVOT,
+  EXPRESSIONS,
+  EYE_Y,
+  EyesPart,
+  Foot,
+  FOX,
+  FoxDefs,
+  HeadBase,
+  MouthPart,
+  Nose,
+  Paw,
+  Strap,
+  Tail,
+  type Expression,
+} from './FoxArt';
+
+export type FoxPose =
+  | 'wave'
+  | 'walk'
+  | 'jump'
+  | 'cheer'
+  | 'meditate'
+  | 'breathe'
+  | 'read'
+  | 'sleep'
+  | 'bust'
+  | 'head';
+
+export type FoxProps = {
+  pose?: FoxPose;
+  /** Rendered height in points. */
+  size?: number;
+  expression?: Expression;
+  motion?: MotionLevel;
+  /** Tap the fox for a happy hop (default true). */
+  interactive?: boolean;
+  onPress?: () => void;
+  /** External breathing drive 0..1 (guided breathing). */
+  breath?: SharedValue<number>;
+  /** Hide the backpack (e.g. calm poses). */
+  backpack?: boolean;
+  /** Bust/head only: show a waving paw. */
+  wavePaw?: boolean;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+};
+
+type Anim = {
+  level: MotionLevel;
+  breath: SharedValue<number>;
+  blink: SharedValue<number>;
+  tilt: SharedValue<number>;
+  earL: SharedValue<number>;
+  earR: SharedValue<number>;
+  tail: SharedValue<number>;
+  wave: SharedValue<number>;
+  hop: SharedValue<number>;
+  phase: SharedValue<number>;
+  poke: SharedValue<number>;
+};
+
+const VB: Record<FoxPose, [number, number]> = {
+  wave: [240, 240],
+  walk: [240, 240],
+  jump: [240, 240],
+  cheer: [240, 228],
+  meditate: [240, 214],
+  breathe: [240, 222],
+  read: [220, 206],
+  sleep: [270, 170],
+  bust: [200, 200],
+  head: [180, 180],
+};
+
+const DEFAULT_EXPRESSION: Record<FoxPose, Expression> = {
+  wave: 'happy',
+  walk: 'happy',
+  jump: 'joy',
+  cheer: 'joy',
+  meditate: 'calm',
+  breathe: 'calm',
+  read: 'focus',
+  sleep: 'sleepy',
+  bust: 'happy',
+  head: 'happy',
+};
+
+function useFoxAnim(pose: FoxPose, level: MotionLevel, external?: SharedValue<number>): Anim {
+  const on = level !== 'off';
+  const full = level === 'full';
+  const calmPose = pose === 'meditate' || pose === 'breathe' || pose === 'sleep';
+  const breathDur = pose === 'sleep' ? 2600 : calmPose ? 2200 : 1700;
+  const internalBreath = useOscillator(on && !external, breathDur);
+  const blink = useBlink(on);
+  const tilt = useOscillator(on, full ? 2600 : 3600, { rest: 0.5 });
+  const earL = useTwitch(on && full, 3200, 7600);
+  const earR = useTwitch(on, 2600, 6400);
+  const tail = useOscillator(on, pose === 'sleep' ? 1800 : calmPose ? 1400 : full ? 620 : 1100, { rest: 0.5 });
+  const wave = useWave(on && (pose === 'wave' || pose === 'walk' || pose === 'jump' || pose === 'bust'), !full);
+  const hop = useHop(on && full && (pose === 'jump' || pose === 'cheer'), pose === 'jump' ? 1000 : 1200, pose === 'jump' ? 500 : 900);
+  const phase = usePhase(on && (pose === 'walk' || pose === 'read' || pose === 'sleep'), pose === 'walk' ? (full ? 900 : 1500) : pose === 'read' ? 4200 : 3600);
+  const poke = useSharedValue(0);
+  return {
+    level,
+    breath: external ?? internalBreath,
+    blink,
+    tilt,
+    earL,
+    earR,
+    tail,
+    wave,
+    hop,
+    phase,
+    poke,
+  };
+}
+
+/* ------------------------------------------------------------------------ */
+/* Head rig                                                                  */
+/* ------------------------------------------------------------------------ */
+
+type HeadPlacement = { x: number; y: number; s: number; rot?: number };
+
+function HeadRig({
+  vb,
+  head,
+  expression,
+  a,
+  tiltDeg = 3,
+  bob = 1.4,
+}: {
+  vb: [number, number];
+  head: HeadPlacement;
+  expression: Expression;
+  a: Anim;
+  tiltDeg?: number;
+  bob?: number;
+}) {
+  const p = useUid('fh');
+  const [W, H] = vb;
+  const { x, y, s, rot = 0 } = head;
+  const t = `translate(${x} ${y}) rotate(${rot}) scale(${s})`;
+  const ex = EXPRESSIONS[expression];
+  const toPose = (lx: number, ly: number) => {
+    const r = (rot * Math.PI) / 180;
+    return {
+      x: x + (lx * Math.cos(r) - ly * Math.sin(r)) * s,
+      y: y + (lx * Math.sin(r) + ly * Math.cos(r)) * s,
+    };
+  };
+  const neck = toPose(0, 50);
+  const eL = toPose(EAR_PIVOT.left.x, EAR_PIVOT.left.y);
+  const eR = toPose(EAR_PIVOT.right.x, EAR_PIVOT.right.y);
+  const eye = toPose(0, EYE_Y + 1);
+
+  const headStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -a.breath.value * bob * (W / 240) },
+      { rotate: `${(a.tilt.value - 0.5) * 2 * tiltDeg + a.poke.value * 6}deg` },
+    ],
+  }));
+  const earLStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${-a.earL.value * 13 - a.poke.value * 10}deg` }],
+  }));
+  const earRStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${a.earR.value * 13 + a.poke.value * 10}deg` }],
+  }));
+  const blinks = ex.eyes === 'open' || ex.eyes === 'down' || ex.eyes === 'side';
+  const eyeStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: blinks ? 0.08 + 0.92 * a.blink.value : 1 }],
+  }));
+
+  return (
+    <Rig style={[pivot(neck.x, neck.y, W, H), headStyle]}>
+      <Layer vb={`0 0 ${W} ${H}`} style={[pivot(eL.x, eL.y, W, H), earLStyle]}>
+        <FoxDefs p={`${p}a`} />
+        <G transform={t}>
+          <Ear p={`${p}a`} side="left" />
+        </G>
+      </Layer>
+      <Layer vb={`0 0 ${W} ${H}`} style={[pivot(eR.x, eR.y, W, H), earRStyle]}>
+        <FoxDefs p={`${p}b`} />
+        <G transform={t}>
+          <Ear p={`${p}b`} side="right" />
+        </G>
+      </Layer>
+      <Layer vb={`0 0 ${W} ${H}`}>
+        <FoxDefs p={`${p}c`} />
+        <G transform={t}>
+          <HeadBase p={`${p}c`} />
+          <Blush opacity={ex.blush} />
+          <Nose />
+          <MouthPart kind={ex.mouth} />
+        </G>
+      </Layer>
+      <Layer vb={`0 0 ${W} ${H}`} style={[pivot(eye.x, eye.y, W, H), eyeStyle]}>
+        <G transform={t}>
+          <EyesPart kind={ex.eyes} />
+        </G>
+      </Layer>
+    </Rig>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/* Body sheets                                                               */
+/* ------------------------------------------------------------------------ */
+
+function Sheet({ vb, style, children }: { vb: [number, number]; style?: LayerStyle; children: (p: string) => ReactNode }) {
+  const p = useUid('fb');
+  return (
+    <Layer vb={`0 0 ${vb[0]} ${vb[1]}`} style={style as never}>
+      <FoxDefs p={p} />
+      {children(p)}
+    </Layer>
+  );
+}
+
+const TORSO =
+  'M 95 126 C 86 145 83 170 86 192 C 88 206 102 213 120 213 C 138 213 152 206 154 192 C 157 170 154 145 145 126 Z';
+const BELLY =
+  'M 120 142 C 135 142 143 157 143 175 C 143 193 133 205 120 205 C 107 205 97 193 97 175 C 97 157 105 142 120 142 Z';
+
+function Torso({ p, packStraps = true }: { p: string; packStraps?: boolean }) {
+  return (
+    <G>
+      <Path d={TORSO} fill={`url(#${p}body)`} />
+      <Path d={BELLY} fill={`url(#${p}cream)`} />
+      <Ellipse cx={120} cy={133} rx={17} ry={8} fill={FOX.bib} />
+      {packStraps && (
+        <G>
+          <Strap d="M 96 124 C 99 136 100 150 98 168 C 97 176 94 182 90 186 L 86 180 C 91 172 93 160 92 146 C 91 136 90 130 89 126 Z" />
+          <Strap d="M 144 124 C 141 136 140 150 142 168 C 143 176 146 182 150 186 L 154 180 C 149 172 147 160 148 146 C 149 136 150 130 151 126 Z" />
+        </G>
+      )}
+    </G>
+  );
+}
+
+/* ------------------------------------------------------------------------ */
+/* Poses                                                                     */
+/* ------------------------------------------------------------------------ */
+
+function WavePose({ a, expression, backpack }: { a: Anim; expression: Expression; backpack: boolean }) {
+  const vb = VB.wave;
+  const [W, H] = vb;
+  const tailStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${(a.tail.value - 0.5) * 2 * 7}deg` }],
+  }));
+  const armStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${a.wave.value * 16 - 4}deg` }],
+  }));
+  const holdStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${(a.breath.value - 0.5) * 3}deg` }],
+  }));
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(100, 196, W, H), tailStyle]}>
+        {(p) => <Tail p={p} transform="translate(100 196) rotate(-6)" />}
+      </Sheet>
+      <Sheet vb={vb}>
+        {(p) => (
+          <G>
+            {backpack && <Backpack p={p} x={64} y={130} w={38} h={64} />}
+            <Path d="M 97 194 L 97 212 C 97 219 115 219 115 212 L 115 196 Z" fill={`url(#${p}limb)`} />
+            <Path d="M 125 196 L 125 212 C 125 219 143 219 143 212 L 143 194 Z" fill={`url(#${p}limb)`} />
+            <Foot p={p} cx={105} cy={218} w={27} h={13} />
+            <Foot p={p} cx={135} cy={218} w={27} h={13} />
+            <Torso p={p} packStraps={backpack} />
+          </G>
+        )}
+      </Sheet>
+      <Sheet vb={vb} style={[pivot(98, 134, W, H), holdStyle]}>
+        {(p) => (
+          <G>
+            <Path
+              d="M 101 130 C 88 135 82 150 86 163 C 89 172 99 174 107 170 C 113 167 113 160 108 157 C 102 157 98 152 99 145 Z"
+              fill={`url(#${p}limb)`}
+            />
+            <Paw p={p} cx={110} cy={163} rx={7.5} ry={8.5} rot={-20} />
+          </G>
+        )}
+      </Sheet>
+      <HeadRig vb={vb} head={{ x: 120, y: 84, s: 0.83 }} expression={expression} a={a} />
+      <Sheet vb={vb} style={[pivot(146, 140, W, H), armStyle]}>
+        {(p) => (
+          <G>
+            <Path
+              d="M 139 132 C 153 116 170 97 183 80 C 189 72 203 74 204 84 C 203 93 196 101 188 109 C 176 123 163 138 151 150 Z"
+              fill={`url(#${p}limb)`}
+            />
+            <Paw p={p} cx={195} cy={78} rx={11} ry={12.5} rot={32} beans />
+          </G>
+        )}
+      </Sheet>
+    </>
+  );
+}
+
+function BustPose({ a, expression, backpack, wavePaw }: { a: Anim; expression: Expression; backpack: boolean; wavePaw: boolean }) {
+  const vb = VB.bust;
+  const [W, H] = vb;
+  const armStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${a.wave.value * 14}deg` }],
+  }));
+  return (
+    <>
+      <Sheet vb={vb}>
+        {(p) => (
+          <G>
+            {backpack && (
+              <G>
+                <Path d="M 66 150 C 44 150 32 164 32 184 L 32 200 L 70 200 Z" fill={`url(#${p}pack)`} />
+                <Path d="M 134 150 C 156 150 168 164 168 184 L 168 200 L 130 200 Z" fill={`url(#${p}pack)`} />
+              </G>
+            )}
+            <Path d="M 56 200 C 56 172 72 146 100 144 C 128 146 144 172 144 200 Z" fill={`url(#${p}body)`} />
+            <Path d="M 100 156 C 115 156 123 172 123 200 L 77 200 C 77 172 85 156 100 156 Z" fill={`url(#${p}cream)`} />
+            <Ellipse cx={100} cy={152} rx={17} ry={8} fill={FOX.bib} />
+            {backpack && (
+              <G>
+                <Strap d="M 70 150 C 73 166 74 184 74 200 L 82 200 C 82 184 81 166 78 150 Z" />
+                <Strap d="M 122 150 C 119 166 118 184 118 200 L 126 200 C 126 184 127 166 130 150 Z" />
+              </G>
+            )}
+          </G>
+        )}
+      </Sheet>
+      <HeadRig vb={vb} head={{ x: 100, y: 96, s: 0.9 }} expression={expression} a={a} tiltDeg={4} bob={1.1} />
+      {wavePaw && (
+        <Sheet vb={vb} style={[pivot(146, 186, W, H), armStyle]}>
+          {(p) => (
+            <G>
+              <Path d="M 136 190 C 146 172 156 156 164 142 C 169 134 182 137 181 147 C 178 161 168 178 156 196 Z" fill={`url(#${p}limb)`} />
+              <Paw p={p} cx={174} cy={139} rx={10} ry={11} rot={24} beans />
+            </G>
+          )}
+        </Sheet>
+      )}
+    </>
+  );
+}
+
+
+/** Shared helpers for limb sheets that swing around a pivot. */
+function useSwing(v: SharedValue<number>, amp: number, offset = 0, center = 0.5) {
+  return useAnimatedStyle(() => ({ transform: [{ rotate: `${(v.value - center) * 2 * amp + offset}deg` }] }));
+}
+
+function WalkPose({ a, expression, backpack }: { a: Anim; expression: Expression; backpack: boolean }) {
+  const vb = VB.walk;
+  const [W, H] = vb;
+  const tailStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${Math.sin(a.phase.value * Math.PI * 2) * 6 - 4}deg` }],
+  }));
+  const legL = useAnimatedStyle(() => ({ transform: [{ rotate: `${Math.sin(a.phase.value * Math.PI * 2) * 20}deg` }] }));
+  const legR = useAnimatedStyle(() => ({ transform: [{ rotate: `${-Math.sin(a.phase.value * Math.PI * 2) * 20}deg` }] }));
+  const bodyBob = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.abs(Math.sin(a.phase.value * Math.PI * 2)) * 4 * (W / 240) }],
+  }));
+  const armStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${a.wave.value * 14 - 4}deg` }] }));
+  const holdStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${-Math.sin(a.phase.value * Math.PI * 2) * 8}deg` }] }));
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(116, 206, W, H), legR]}>
+        {(p) => (
+          <G>
+            <Path d="M 124 196 L 126 214 C 127 220 143 219 142 212 L 140 194 Z" fill={`url(#${p}limb)`} />
+            <Foot p={p} cx={136} cy={218} w={27} h={13} rot={-6} />
+          </G>
+        )}
+      </Sheet>
+      <Rig style={bodyBob}>
+        <Sheet vb={vb} style={[pivot(100, 196, W, H), tailStyle]}>
+          {(p) => <Tail p={p} transform="translate(100 196) rotate(-12)" />}
+        </Sheet>
+        <Sheet vb={vb}>
+          {(p) => (
+            <G>
+              {backpack && <Backpack p={p} x={62} y={128} w={40} h={64} />}
+              <Torso p={p} packStraps={backpack} />
+            </G>
+          )}
+        </Sheet>
+        <Sheet vb={vb} style={[pivot(98, 134, W, H), holdStyle]}>
+          {(p) => (
+            <G>
+              <Path d="M 101 130 C 88 135 82 150 86 163 C 89 172 99 174 107 170 C 113 167 113 160 108 157 C 102 157 98 152 99 145 Z" fill={`url(#${p}limb)`} />
+              <Paw p={p} cx={110} cy={163} rx={7.5} ry={8.5} rot={-20} />
+            </G>
+          )}
+        </Sheet>
+        <HeadRig vb={vb} head={{ x: 120, y: 84, s: 0.83, rot: 3 }} expression={expression} a={a} />
+        <Sheet vb={vb} style={[pivot(146, 140, W, H), armStyle]}>
+          {(p) => (
+            <G>
+              <Path d="M 139 132 C 153 116 170 97 183 80 C 189 72 203 74 204 84 C 203 93 196 101 188 109 C 176 123 163 138 151 150 Z" fill={`url(#${p}limb)`} />
+              <Paw p={p} cx={195} cy={78} rx={11} ry={12.5} rot={32} beans />
+            </G>
+          )}
+        </Sheet>
+      </Rig>
+      <Sheet vb={vb} style={[pivot(104, 204, W, H), legL]}>
+        {(p) => (
+          <G>
+            <Path d="M 98 194 L 96 212 C 95 219 111 220 112 213 L 114 196 Z" fill={`url(#${p}limb)`} />
+            <Foot p={p} cx={102} cy={218} w={27} h={13} rot={6} />
+          </G>
+        )}
+      </Sheet>
+    </>
+  );
+}
+
+function JumpPose({ a, expression, backpack }: { a: Anim; expression: Expression; backpack: boolean }) {
+  const vb = VB.jump;
+  const [W, H] = vb;
+  const tailStyle = useSwing(a.tail, 8);
+  const armUp = useAnimatedStyle(() => ({ transform: [{ rotate: `${-a.wave.value * 14 + 4}deg` }] }));
+  const kick = useAnimatedStyle(() => ({ transform: [{ rotate: `${a.hop.value * 12}deg` }] }));
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(140, 196, W, H), tailStyle]}>
+        {(p) => <Tail p={p} flip transform="translate(140 196) rotate(8)" />}
+      </Sheet>
+      <Sheet vb={vb}>
+        {(p) => (
+          <G>
+            {backpack && <Backpack p={p} x={60} y={128} w={40} h={62} />}
+            {backpack && <Backpack p={p} x={140} y={128} w={40} h={62} flip />}
+            <Path d="M 126 196 L 128 214 C 129 220 145 219 144 212 L 142 194 Z" fill={`url(#${p}limb)`} />
+            <Foot p={p} cx={138} cy={219} w={27} h={13} rot={-4} />
+            <Torso p={p} packStraps={backpack} />
+            <Path d="M 142 132 C 154 142 158 158 154 172 C 151 180 143 182 139 176 C 136 170 142 164 143 156 C 144 148 140 142 137 138 Z" fill={`url(#${p}limb)`} />
+            <Paw p={p} cx={146} cy={176} rx={7.5} ry={8.5} rot={10} />
+          </G>
+        )}
+      </Sheet>
+      <Sheet vb={vb} style={[pivot(108, 196, W, H), kick]}>
+        {(p) => (
+          <G>
+            <Path
+              d="M 114 186 C 104 186 94 184 84 178 C 76 173 70 170 64 174 C 58 179 62 188 70 192 C 82 199 98 204 112 204 C 118 202 120 190 114 186 Z"
+              fill={`url(#${p}body)`}
+              stroke={FOX.furShade}
+              strokeOpacity={0.25}
+              strokeWidth={1.2}
+            />
+            <Foot p={p} cx={64} cy={183} w={30} h={17} rot={-62} />
+          </G>
+        )}
+      </Sheet>
+      <HeadRig vb={vb} head={{ x: 122, y: 84, s: 0.83, rot: 4 }} expression={expression} a={a} tiltDeg={4} />
+      <Sheet vb={vb} style={[pivot(98, 140, W, H), armUp]}>
+        {(p) => (
+          <G>
+            <Path d="M 102 134 C 88 118 72 98 60 82 C 54 74 40 77 40 87 C 42 96 48 104 56 112 C 68 126 80 140 92 150 Z" fill={`url(#${p}limb)`} />
+            <Paw p={p} cx={48} cy={80} rx={11} ry={12.5} rot={-32} beans />
+          </G>
+        )}
+      </Sheet>
+    </>
+  );
+}
+
+function SeatedBody({ p, pack, legs = 'forward' }: { p: string; pack: boolean; legs?: 'forward' | 'crossed' }) {
+  return (
+    <G>
+      {pack && (
+        <G>
+          <Path d="M 96 132 C 74 132 64 150 64 170 C 64 184 70 192 80 194 L 98 194 Z" fill={`url(#${p}pack)`} />
+          <Path d="M 144 132 C 166 132 176 150 176 170 C 176 184 170 192 160 194 L 142 194 Z" fill={`url(#${p}pack)`} />
+        </G>
+      )}
+      <Path
+        d="M 95 126 C 84 144 80 168 82 190 C 84 202 100 206 120 206 C 140 206 156 202 158 190 C 160 168 156 144 145 126 Z"
+        fill={`url(#${p}body)`}
+      />
+      <Path d="M 120 142 C 134 142 141 156 141 172 C 141 188 132 198 120 198 C 108 198 99 188 99 172 C 99 156 106 142 120 142 Z" fill={`url(#${p}cream)`} />
+      <Ellipse cx={120} cy={133} rx={17} ry={8} fill={FOX.bib} />
+      {legs === 'forward' ? (
+        <G>
+          <Path d="M 90 184 C 76 188 68 198 72 208 C 76 214 92 214 104 208 C 110 202 106 190 100 186 Z" fill={`url(#${p}limb)`} />
+          <Path d="M 150 184 C 164 188 172 198 168 208 C 164 214 148 214 136 208 C 130 202 134 190 140 186 Z" fill={`url(#${p}limb)`} />
+          <Foot p={p} cx={80} cy={208} w={30} h={17} rot={-8} />
+          <Foot p={p} cx={160} cy={208} w={30} h={17} rot={8} />
+        </G>
+      ) : (
+        <G>
+          <Path d="M 70 190 C 62 180 72 168 96 170 L 144 170 C 168 168 178 180 170 190 C 164 202 140 208 120 208 C 100 208 76 202 70 190 Z" fill={`url(#${p}body)`} />
+          <Path d="M 78 192 C 92 184 108 184 120 190 C 132 184 148 184 162 192" stroke={FOX.furShade} strokeOpacity={0.35} strokeWidth={2} fill="none" strokeLinecap="round" />
+        </G>
+      )}
+      {pack && (
+        <G>
+          <Strap d="M 96 126 C 99 136 100 148 99 160 L 92 160 C 93 148 92 136 89 128 Z" />
+          <Strap d="M 144 126 C 141 136 140 148 141 160 L 148 160 C 147 148 148 136 151 128 Z" />
+        </G>
+      )}
+    </G>
+  );
+}
+
+function CheerPose({ a, expression, backpack }: { a: Anim; expression: Expression; backpack: boolean }) {
+  const vb = VB.cheer;
+  const [W, H] = vb;
+  const tailStyle = useSwing(a.tail, 7);
+  const armL = useAnimatedStyle(() => ({ transform: [{ rotate: `${(a.tail.value - 0.5) * 16}deg` }] }));
+  const armR = useAnimatedStyle(() => ({ transform: [{ rotate: `${-(a.tail.value - 0.5) * 16}deg` }] }));
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(94, 196, W, H), tailStyle]}>
+        {(p) => <Tail p={p} transform="translate(94 198) rotate(-18) scale(0.9)" />}
+      </Sheet>
+      <Sheet vb={vb}>{(p) => <SeatedBody p={p} pack={backpack} />}</Sheet>
+      <Sheet vb={vb} style={[pivot(100, 140, W, H), armL]}>
+        {(p) => (
+          <G>
+            <Path d="M 104 136 C 90 124 74 108 62 94 C 56 86 42 90 44 100 C 47 108 54 116 62 124 C 74 136 84 146 94 154 Z" fill={`url(#${p}limb)`} />
+            <Paw p={p} cx={52} cy={93} rx={11} ry={12.5} rot={-40} beans />
+          </G>
+        )}
+      </Sheet>
+      <Sheet vb={vb} style={[pivot(140, 140, W, H), armR]}>
+        {(p) => (
+          <G>
+            <Path d="M 136 136 C 150 124 166 108 178 94 C 184 86 198 90 196 100 C 193 108 186 116 178 124 C 166 136 156 146 146 154 Z" fill={`url(#${p}limb)`} />
+            <Paw p={p} cx={188} cy={93} rx={11} ry={12.5} rot={40} beans />
+          </G>
+        )}
+      </Sheet>
+      <HeadRig vb={vb} head={{ x: 120, y: 86, s: 0.83 }} expression={expression} a={a} tiltDeg={4} />
+    </>
+  );
+}
+
+function MeditatePose({ a, expression }: { a: Anim; expression: Expression }) {
+  const vb = VB.meditate;
+  const [W, H] = vb;
+  const chest = useAnimatedStyle(() => ({
+    transform: [{ scaleX: 1 + a.breath.value * 0.025 }, { scaleY: 1 + a.breath.value * 0.035 }],
+  }));
+  return (
+    <>
+      <Layer vb={`0 0 ${W} ${H}`}>
+        <Ellipse cx={120} cy={203} rx={92} ry={11} fill="#2E9C7A" />
+        <Ellipse cx={120} cy={201} rx={84} ry={8} fill="#3BAE89" />
+      </Layer>
+      <Rig style={[pivot(120, 206, W, H), chest]}>
+        <Sheet vb={vb}>
+          {(p) => (
+            <G>
+              <SeatedBody p={p} pack={false} legs="crossed" />
+              <Path d="M 99 136 C 86 146 84 166 94 180 C 100 188 110 190 116 186 L 112 176 C 104 174 100 164 104 150 Z" fill={`url(#${p}limb)`} />
+              <Path d="M 141 136 C 154 146 156 166 146 180 C 140 188 130 190 124 186 L 128 176 C 136 174 140 164 136 150 Z" fill={`url(#${p}limb)`} />
+              <Path d="M 120 168 C 112 170 108 180 110 190 C 112 198 120 200 121 192 Z" fill={`url(#${p}paw)`} />
+              <Path d="M 120 168 C 128 170 132 180 130 190 C 128 198 120 200 119 192 Z" fill={`url(#${p}paw)`} />
+            </G>
+          )}
+        </Sheet>
+      </Rig>
+      <HeadRig vb={vb} head={{ x: 120, y: 88, s: 0.83 }} expression={expression} a={a} tiltDeg={1.5} bob={2.4} />
+    </>
+  );
+}
+
+function BreathePose({ a, expression, backpack }: { a: Anim; expression: Expression; backpack: boolean }) {
+  const vb = VB.breathe;
+  const [W, H] = vb;
+  const tailStyle = useSwing(a.tail, 4);
+  const chest = useAnimatedStyle(() => ({
+    transform: [{ scaleX: 1 + a.breath.value * 0.03 }, { scaleY: 1 + a.breath.value * 0.04 }],
+  }));
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(92, 200, W, H), tailStyle]}>
+        {(p) => <Tail p={p} transform="translate(96 200) rotate(-22) scale(0.72)" />}
+      </Sheet>
+      <Rig style={[pivot(120, 206, W, H), chest]}>
+        <Sheet vb={vb}>
+          {(p) => (
+            <G>
+              <SeatedBody p={p} pack={backpack} />
+              <Path d="M 99 136 C 86 146 86 166 96 176 C 102 180 108 180 110 176 L 106 166 C 102 162 100 154 104 146 Z" fill={`url(#${p}limb)`} />
+              <Path d="M 141 136 C 154 146 154 166 144 176 C 138 180 132 180 130 176 L 134 166 C 138 162 140 154 136 146 Z" fill={`url(#${p}limb)`} />
+              <Paw p={p} cx={108} cy={174} rx={7} ry={8} rot={10} />
+              <Paw p={p} cx={132} cy={174} rx={7} ry={8} rot={-10} />
+            </G>
+          )}
+        </Sheet>
+      </Rig>
+      <HeadRig vb={vb} head={{ x: 120, y: 86, s: 0.83 }} expression={expression} a={a} tiltDeg={1.5} bob={2.6} />
+    </>
+  );
+}
+
+function ReadPose({ a, expression }: { a: Anim; expression: Expression }) {
+  const vb = VB.read;
+  const [W, H] = vb;
+  const tailStyle = useSwing(a.tail, 5);
+  const page = useAnimatedStyle(() => {
+    const t = a.phase.value; // flip during the last 18% of each cycle
+    const k = t > 0.82 ? (t - 0.82) / 0.18 : 0;
+    return { opacity: k > 0 && k < 1 ? 1 : 0, transform: [{ scaleX: 1 - 2 * k }] };
+  });
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(84, 190, W, H), tailStyle]}>
+        {(p) => <Tail p={p} transform="translate(84 194) rotate(-30) scale(0.72)" />}
+      </Sheet>
+      <Sheet vb={vb}>
+        {(p) => (
+          <G transform="translate(-10 -4)">
+            <SeatedBody p={p} pack={false} />
+          </G>
+        )}
+      </Sheet>
+      <HeadRig vb={vb} head={{ x: 110, y: 84, s: 0.8 }} expression={expression} a={a} tiltDeg={2} />
+      <Sheet vb={vb}>
+        {(p) => (
+          <G>
+            <Path d="M 110 150 L 62 142 C 58 142 56 144 56 148 L 58 190 C 58 194 60 196 64 196 L 110 202 Z" fill={`url(#${p}book)`} />
+            <Path d="M 110 150 L 158 142 C 162 142 164 144 164 148 L 162 190 C 162 194 160 196 156 196 L 110 202 Z" fill={`url(#${p}book)`} />
+            <Path d="M 110 150 L 66 143 L 68 188 L 110 195 Z" fill={FOX.bookPage} opacity={0.18} />
+            <Path d="M 110 150 L 110 202" stroke="#1C5FC8" strokeWidth={2.4} />
+            <Path d="M 76 156 L 102 160 M 76 164 L 102 168 M 118 160 L 146 156 M 118 168 L 146 164" stroke="#FFFFFF" strokeOpacity={0.45} strokeWidth={2.2} strokeLinecap="round" />
+            <Paw p={p} cx={60} cy={172} rx={8} ry={9} rot={-10} />
+            <Paw p={p} cx={160} cy={172} rx={8} ry={9} rot={10} />
+          </G>
+        )}
+      </Sheet>
+      <Layer vb={`0 0 ${W} ${H}`} style={[pivot(110, 170, W, H), page]}>
+        <Path d="M 110 150 L 150 144 L 148 190 L 110 196 Z" fill="#6FA8F7" />
+      </Layer>
+    </>
+  );
+}
+
+function SleepPose({ a, expression, backpack }: { a: Anim; expression: Expression; backpack: boolean }) {
+  const vb = VB.sleep;
+  const [W, H] = vb;
+  const tailStyle = useSwing(a.tail, 3);
+  const body = useAnimatedStyle(() => ({ transform: [{ scaleY: 1 + a.breath.value * 0.04 }] }));
+  const z1 = useAnimatedStyle(() => {
+    const t = a.phase.value;
+    return { opacity: Math.sin(t * Math.PI) * 0.9, transform: [{ translateX: t * 14 }, { translateY: -t * 26 }, { scale: 0.7 + t * 0.4 }] };
+  });
+  const z2 = useAnimatedStyle(() => {
+    const t = (a.phase.value + 0.5) % 1;
+    return { opacity: Math.sin(t * Math.PI) * 0.75, transform: [{ translateX: t * 12 }, { translateY: -t * 22 }, { scale: 0.55 + t * 0.35 }] };
+  });
+  return (
+    <>
+      <Sheet vb={vb} style={[pivot(214, 146, W, H), tailStyle]}>
+        {(p) => <Tail p={p} flip transform="translate(206 150) rotate(-6) scale(0.68)" />}
+      </Sheet>
+      <Rig style={[pivot(140, 164, W, H), body]}>
+        <Sheet vb={vb}>
+          {(p) => (
+            <G>
+              <Path d="M 48 150 C 38 124 62 102 108 98 L 170 98 C 214 100 236 118 232 142 C 230 156 214 162 196 162 L 70 162 C 58 162 50 158 48 150 Z" fill={`url(#${p}body)`} />
+              <Path d="M 52 140 C 44 128 48 118 58 116 C 56 126 60 136 70 144 Z" fill={FOX.cream} opacity={0.9} />
+              {backpack && (
+                <G>
+                  <Path d="M 88 104 C 70 108 60 120 62 136 C 64 146 74 150 86 150 L 100 150 L 102 104 Z" fill={`url(#${p}pack)`} />
+                  <Path d="M 176 102 C 198 104 212 116 214 132 C 214 144 206 150 196 150 L 172 150 Z" fill={`url(#${p}pack)`} />
+                </G>
+              )}
+            </G>
+          )}
+        </Sheet>
+      </Rig>
+      <HeadRig vb={vb} head={{ x: 136, y: 96, s: 0.74, rot: 8 }} expression={expression} a={a} tiltDeg={1} bob={1.6} />
+      <Sheet vb={vb}>
+        {(p) => (
+          <G>
+            <Path d="M 96 150 C 106 142 170 142 178 150 C 182 160 168 166 136 166 C 110 166 90 162 96 150 Z" fill={`url(#${p}limb)`} />
+            <Paw p={p} cx={116} cy={157} rx={11} ry={8} rot={-8} />
+            <Paw p={p} cx={156} cy={158} rx={11} ry={8} rot={8} />
+          </G>
+        )}
+      </Sheet>
+      <Layer vb={`0 0 ${W} ${H}`} style={z1}>
+        <Path d="M 196 40 L 208 40 L 196 52 L 208 52" stroke="#7F8AC4" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </Layer>
+      <Layer vb={`0 0 ${W} ${H}`} style={z2}>
+        <Path d="M 214 20 L 223 20 L 214 29 L 223 29" stroke="#A7B0D8" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </Layer>
+    </>
+  );
+}
+
+function HeadPose({ a, expression }: { a: Anim; expression: Expression }) {
+  return <HeadRig vb={VB.head} head={{ x: 90, y: 100, s: 0.78 }} expression={expression} a={a} tiltDeg={4} bob={0.8} />;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Public component                                                          */
+/* ------------------------------------------------------------------------ */
+
+export function Fox({
+  pose = 'wave',
+  size = 220,
+  expression,
+  motion,
+  interactive = true,
+  onPress,
+  breath,
+  backpack = true,
+  wavePaw = false,
+  style,
+  accessibilityLabel = 'Finn the fox',
+}: FoxProps) {
+  const level = useMotionLevel(motion);
+  const a = useFoxAnim(pose, level, breath);
+  const [W, H] = VB[pose];
+  const width = (size * W) / H;
+  const [tapExpr, setTapExpr] = useState<Expression | null>(null);
+  const ex = tapExpr ?? expression ?? DEFAULT_EXPRESSION[pose];
+
+  const rootStyle = useAnimatedStyle(() => {
+    const b = a.breath.value;
+    const hopY = pose === 'jump' || pose === 'cheer' ? -a.hop.value * size * (pose === 'jump' ? 0.09 : 0.05) : 0;
+    const squash = a.hop.value < 0 ? a.hop.value : 0;
+    return {
+      transform: [
+        { translateY: hopY - a.poke.value * size * 0.06 },
+        { scaleX: 1 - squash * 0.06 },
+        { scaleY: 1 + b * 0.012 + squash * 0.08 },
+      ],
+    };
+  });
+
+  const handlePress = useCallback(() => {
+    onPress?.();
+    if (!interactive) return;
+    tapHaptic();
+    if (level !== 'off') {
+      a.poke.value = withSequence(
+        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
+        withSpring(0, { damping: 7, stiffness: 180 }),
+      );
+    }
+    const closedEyes = ex === 'calm' || ex === 'sleepy';
+    if (!closedEyes) {
+      setTapExpr('joy');
+      setTimeout(() => setTapExpr(null), 900);
+    }
+  }, [a.poke, ex, interactive, level, onPress]);
+
+  let body: ReactNode;
+  switch (pose) {
+    case 'walk':
+      body = <WalkPose a={a} expression={ex} backpack={backpack} />;
+      break;
+    case 'jump':
+      body = <JumpPose a={a} expression={ex} backpack={backpack} />;
+      break;
+    case 'cheer':
+      body = <CheerPose a={a} expression={ex} backpack={backpack} />;
+      break;
+    case 'meditate':
+      body = <MeditatePose a={a} expression={ex} />;
+      break;
+    case 'breathe':
+      body = <BreathePose a={a} expression={ex} backpack={backpack} />;
+      break;
+    case 'read':
+      body = <ReadPose a={a} expression={ex} />;
+      break;
+    case 'sleep':
+      body = <SleepPose a={a} expression={ex} backpack={backpack} />;
+      break;
+    case 'bust':
+      body = <BustPose a={a} expression={ex} backpack={backpack} wavePaw={wavePaw} />;
+      break;
+    case 'head':
+      body = <HeadPose a={a} expression={ex} />;
+      break;
+    case 'wave':
+    default:
+      body = <WavePose a={a} expression={ex} backpack={backpack} />;
+  }
+
+  const shadowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(a.hop.value, [-0.4, 0, 1], [0.12, 0.09, 0.04]),
+    transform: [{ scaleX: interpolate(a.hop.value, [-0.4, 0, 1], [1.08, 1, 0.7]) }],
+  }));
+  const hasShadow = pose !== 'bust' && pose !== 'head' && pose !== 'meditate';
+
+  const content = (
+    <View style={[{ width, height: size }, style]} accessible accessibilityRole={interactive || onPress ? 'button' : 'image'} accessibilityLabel={accessibilityLabel}>
+      {hasShadow && (
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: 'absolute', left: width * 0.2, right: width * 0.2, bottom: -size * 0.01, height: size * 0.06 }, shadowStyle]}
+        >
+          <Svg width="100%" height="100%" viewBox="0 0 100 20" preserveAspectRatio="none">
+            <Ellipse cx={50} cy={10} rx={50} ry={10} fill="#34518F" />
+          </Svg>
+        </Animated.View>
+      )}
+      <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width, height: size }, pivot(W / 2, H, W, H), rootStyle]}>
+        {body}
+      </Animated.View>
+    </View>
+  );
+
+  if (!interactive && !onPress) return content;
+  return (
+    <Pressable onPress={handlePress} hitSlop={6}>
+      {content}
+    </Pressable>
+  );
+}

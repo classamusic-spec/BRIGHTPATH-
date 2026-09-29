@@ -1,18 +1,21 @@
 {
   "expo": {
-    "name": "probe",
-    "slug": "probe",
-    "version": "1.0.0",
+    "name": "BrightPath",
+    "slug": "brightpath",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "probe",
-    "userInterfaceStyle": "automatic",
+    "scheme": "brightpath",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F3F8FD",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "supportsTablet": true,
+      "bundleIdentifier": "app.brightpath.learning"
     },
     "android": {
+      "package": "app.brightpath.learning",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#EAF4FD",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -20,23 +23,36 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "BrightPath",
+      "shortName": "BrightPath",
+      "themeColor": "#2880FC",
+      "backgroundColor": "#F3F8FD"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#EAF4FD",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 200
+        }
+      ],
+      "expo-audio",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BrightPath lets you attach an optional photo to an observation. Photos stay on this device.",
+          "cameraPermission": "Take an optional photo of an activity (not faces, please). Photos stay on this device."
         }
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": false,
+      "reactCompiler": false
     }
   }
 }
