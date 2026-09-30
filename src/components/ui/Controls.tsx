@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { useMotionLevel } from '@/lib/motion';
 import { colors, radius, shadows, tones, type Tone } from '@/theme';
+import { durations, easings, springs } from '@/theme/motion';
 
 import { IconTile } from './Card';
 import { Tap } from './Tap';
@@ -64,7 +65,7 @@ export function PillTabs<T extends string>({
   size?: 'md' | 'lg';
 }) {
   return (
-    <View style={[styles.pillTrack, size === 'lg' ? { height: 54 } : null, style]} accessibilityRole="tablist">
+    <View style={[styles.pillTrack, size === 'lg' ? { minHeight: 54 } : null, style]} accessibilityRole="tablist">
       {items.map((it) => {
         const active = it.key === value;
         return (
@@ -89,14 +90,18 @@ export function PillTabs<T extends string>({
 
 /* ------------------------------------------------------------ Toggle */
 
+const TOGGLE_W = 64;
+const TOGGLE_H = 44;
+const KNOB = 38;
+
 export function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   const level = useMotionLevel();
   const x = useSharedValue(value ? 1 : 0);
   useEffect(() => {
-    x.value = level === 'off' ? (value ? 1 : 0) : withSpring(value ? 1 : 0, { damping: 16, stiffness: 220 });
+    x.value = level === 'off' ? (value ? 1 : 0) : withSpring(value ? 1 : 0, springs.settle);
   }, [value, level, x]);
-  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * 28 }] }));
-  const track = useAnimatedStyle(() => ({ opacity: 0.35 + x.value * 0.65 }));
+  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: x.value * (TOGGLE_W - KNOB - 6) }] }));
+  const track = useAnimatedStyle(() => ({ opacity: x.value }));
   return (
     <Tap
       onPress={() => onChange(!value)}
@@ -106,9 +111,9 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
       scale={0.97}
       style={styles.toggle}
     >
-      <View style={[StyleSheet.absoluteFill, { borderRadius: 21, backgroundColor: '#C9D3EA' }]} />
-      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 21, backgroundColor: colors.primary }, track]} />
-      <Animated.View style={[styles.knob, knob]} />
+      <View style={[StyleSheet.absoluteFill, styles.toggleOff]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: TOGGLE_H / 2, backgroundColor: colors.primary }, track]} />
+      <Animated.View style={[styles.knob, knob]}>{value ? <Icon name="check" size={14} color={colors.primary} /> : null}</Animated.View>
     </Tap>
   );
 }
@@ -122,8 +127,11 @@ export function ProgressBar({
   track = '#E3E8F2',
   style,
   delay = 0,
+  from,
 }: {
   value: number;
+  /** Where the fill starts (e.g. last round's progress) so it grows instead of restarting at 0. */
+  from?: number;
   color?: string;
   height?: number;
   track?: string;
@@ -131,13 +139,14 @@ export function ProgressBar({
   delay?: number;
 }) {
   const level = useMotionLevel();
-  const w = useSharedValue(level === 'off' ? value : 0);
+  const w = useSharedValue(level === 'off' ? value : (from ?? 0));
   useEffect(() => {
     const t = setTimeout(() => {
-      w.value = level === 'off' ? value : withTiming(value, { duration: 900 });
+      w.value = level === 'off' ? value : withTiming(value, { duration: durations.progress, easing: easings.out });
     }, delay);
     return () => clearTimeout(t);
   }, [value, level, delay, w]);
+  // Width (not scaleX) so the rounded end keeps its shape as it grows.
   const fill = useAnimatedStyle(() => ({ width: `${Math.max(0, Math.min(1, w.value)) * 100}%` }));
   return (
     <View
@@ -175,12 +184,13 @@ export function Chip({
       style={[
         styles.chip,
         size === 'sm' ? styles.chipSm : null,
+        onPress ? (size === 'sm' ? styles.chipSmTap : styles.chipTap) : null,
         { backgroundColor: selected === false ? '#EEF2F9' : t.bg, borderColor: selected ? t.deep : 'transparent' },
         style,
       ]}
     >
       {icon}
-      <Txt v="label" color={selected === false ? colors.textMuted : tone === 'blush' ? '#D8456A' : tone === 'mint' ? colors.mintDeep : colors.text} style={{ fontSize: size === 'sm' ? 12.5 : 14 }}>
+      <Txt v="label" color={selected === false ? colors.textMuted : tone === 'blush' ? colors.dangerText : tone === 'mint' ? colors.mintText : colors.text} style={{ fontSize: size === 'sm' ? 12.5 : 14 }}>
         {label}
       </Txt>
     </View>
@@ -197,7 +207,7 @@ export function StatusPill({ label, color = colors.mint, bg = colors.mintSoft }:
   return (
     <View style={[styles.status, { backgroundColor: bg }]}>
       <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: color }} />
-      <Txt v="label" color={colors.mintDeep} style={{ fontSize: 15 }}>
+      <Txt v="label" color={colors.mintText} style={{ fontSize: 15 }}>
         {label}
       </Txt>
     </View>
@@ -210,7 +220,7 @@ export function CheckBadge({ size = 30, style }: { size?: number; style?: StyleP
   const level = useMotionLevel();
   const s = useSharedValue(level === 'off' ? 1 : 0.2);
   useEffect(() => {
-    s.value = level === 'off' ? 1 : withSpring(1, { damping: 9, stiffness: 240 });
+    s.value = level === 'off' ? 1 : withSpring(1, springs.pop);
   }, [level, s]);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (
@@ -261,7 +271,7 @@ export function ListRow({
   const body = (
     <View style={[styles.row, style]}>
       {iconEl}
-      <View style={{ flex: 1, marginLeft: iconEl ? 14 : 0 }}>
+      <View style={{ flex: 1, marginLeft: iconEl ? 2 : 0 }}>
         <Txt v="subheading" color={colors.ink} style={{ fontSize: titleSize, lineHeight: Math.round(titleSize * 1.3) }} numberOfLines={2}>
           {title}
         </Txt>
@@ -272,7 +282,7 @@ export function ListRow({
         ) : null}
       </View>
       {value ? (
-        <Txt v="body" color={colors.textSoft} style={{ marginRight: 8, fontSize: titleSize - 2 }}>
+        <Txt v="body" color={colors.textSoft} style={{ fontSize: titleSize - 2 }}>
           {value}
         </Txt>
       ) : null}
@@ -293,18 +303,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6EEFA',
     borderRadius: radius.lg,
     padding: 4,
-    height: 52,
+    minHeight: 52,
   },
   segItem: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
   segActive: { backgroundColor: '#FFFFFF', ...shadows.soft },
   segUnderline: { position: 'absolute', bottom: 5, left: '14%', right: '14%', height: 3, borderRadius: 2, backgroundColor: colors.cobalt },
-  pillTrack: { flexDirection: 'row', backgroundColor: '#E3ECFA', borderRadius: radius.pill, padding: 4, height: 46 },
+  pillTrack: { flexDirection: 'row', backgroundColor: '#E3ECFA', borderRadius: radius.pill, padding: 4, minHeight: 46 },
   pillItem: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
-  pillActive: { backgroundColor: colors.primary, ...shadows.button },
-  toggle: { width: 68, height: 40, borderRadius: 21, justifyContent: 'center' },
-  knob: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFFFFF', marginLeft: 3, ...shadows.soft },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: radius.pill, borderWidth: 1.5 },
-  chipSm: { gap: 4, paddingHorizontal: 8, height: 32, borderWidth: 0 },
+  pillActive: { backgroundColor: colors.primaryPressed, ...shadows.button },
+  toggle: { width: TOGGLE_W, height: TOGGLE_H, borderRadius: TOGGLE_H / 2, justifyContent: 'center' },
+  toggleOff: { borderRadius: TOGGLE_H / 2, backgroundColor: '#C3CCE0', borderWidth: 1.5, borderColor: '#B4BFD6' },
+  knob: { width: KNOB, height: KNOB, borderRadius: KNOB / 2, backgroundColor: '#FFFFFF', marginLeft: 3, alignItems: 'center', justifyContent: 'center', ...shadows.soft },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: radius.pill, borderWidth: 1.5 },
+  chipSm: { gap: 4, paddingHorizontal: 8, minHeight: 32, borderWidth: 0 },
+  // Tappable chips get a full touch target.
+  chipTap: { minHeight: 44 },
+  chipSmTap: { minHeight: 40 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, height: 40, borderRadius: radius.pill, alignSelf: 'flex-start' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 14 },
 });

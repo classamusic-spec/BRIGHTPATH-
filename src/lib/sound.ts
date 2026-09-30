@@ -33,7 +33,7 @@ function canAutoplay(): boolean {
 
 function allowed(): boolean {
   const s = useApp.getState();
-  return (selectLearner(s)?.access.sensory.soundEffects ?? true) && !s.session.quiet && canAutoplay();
+  return (selectLearner(s)?.access?.sensory?.soundEffects ?? true) && !s.session.quiet && canAutoplay();
 }
 
 export function playSound(name: SoundName, volume = 0.6) {

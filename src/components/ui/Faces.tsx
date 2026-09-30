@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import type { Feeling } from '@/engine/types';
@@ -86,8 +86,13 @@ export function FeelingFace({ feeling, size = 72, alive = true, delay = 0 }: { f
   const level = useMotionLevel();
   const t = useSharedValue(0);
   useEffect(() => {
-    if (!alive || level === 'off') return;
+    if (!alive || level === 'off') {
+      cancelAnimation(t);
+      t.value = 0;
+      return;
+    }
     t.value = withDelay(delay, withRepeat(withTiming(1, { duration: 1600 + delay / 3, easing: Easing.inOut(Easing.sin) }), -1, true));
+    return () => cancelAnimation(t);
   }, [alive, level, delay, t]);
   const bob = useAnimatedStyle(() => ({ transform: [{ translateY: -t.value * 2.5 }, { rotate: `${(t.value - 0.5) * 4}deg` }] }));
   return (
@@ -132,7 +137,11 @@ export function TwinkleStar({ size = 36, delay = 0, style }: { size?: number; de
   const level = useMotionLevel();
   const s = useSharedValue(level === 'off' ? 1 : 0);
   useEffect(() => {
-    if (level === 'off') return;
+    if (level === 'off') {
+      cancelAnimation(s);
+      s.value = 1;
+      return;
+    }
     s.value = withDelay(
       delay,
       withSequence(
@@ -141,6 +150,7 @@ export function TwinkleStar({ size = 36, delay = 0, style }: { size?: number; de
         withRepeat(withSequence(withTiming(0.82, { duration: 900 + delay / 2 }), withTiming(1, { duration: 900 + delay / 2 })), -1, true),
       ),
     );
+    return () => cancelAnimation(s);
   }, [level, delay, s]);
   const anim = useAnimatedStyle(() => ({ opacity: Math.min(1, s.value * 1.2), transform: [{ scale: s.value }, { rotate: `${(1 - s.value) * 40}deg` }] }));
   return (

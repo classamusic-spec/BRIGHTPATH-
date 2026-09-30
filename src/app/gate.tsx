@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,11 @@ import { Icon } from '@/components/icons/Icon';
 import { SunMark } from '@/components/kid/Brand';
 import { Landscape, LANDSCAPES } from '@/components/scenery/Landscape';
 import { BackButton, FitBox, Tap, Txt } from '@/components/ui';
+import { announce } from '@/lib/announce';
 import { selectHaptic, successHaptic } from '@/lib/feedback';
+import { useMotionLevel } from '@/lib/motion';
+import { speak } from '@/lib/speech';
+import { useGate } from '@/store/gate';
 import { colors, radius, shadows } from '@/theme';
 
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
@@ -24,11 +28,16 @@ function makeChallenge(): number[] {
  */
 export default function ParentGate() {
   const insets = useSafeAreaInsets();
+  const { next: nextParam } = useLocalSearchParams<{ next?: string }>();
+  const level = useMotionLevel();
   const [challenge, setChallenge] = useState(makeChallenge);
   const [entry, setEntry] = useState<number[]>([]);
   const shake = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
   const prompt = useMemo(() => challenge.map((d) => WORDS[d]).join(' · '), [challenge]);
+  useEffect(() => {
+    speak(`Please enter the numbers ${challenge.map((d) => WORDS[d]).join(', ')}`, { force: true });
+  }, [challenge]);
 
   const press = (d: number) => {
     selectHaptic();
@@ -37,9 +46,13 @@ export default function ParentGate() {
     if (next.length === 3) {
       if (next.every((x, i) => x === challenge[i])) {
         successHaptic();
-        setTimeout(() => router.replace('/coach'), 150);
+        useGate.getState().unlock();
+        // Only ever continue into the grown-up space.
+        const dest = typeof nextParam === 'string' && nextParam.startsWith('/coach') ? nextParam : '/coach';
+        setTimeout(() => router.replace(dest as Href), 150);
       } else {
-        shake.set(withSequence(withTiming(-10, { duration: 50 }), withTiming(10, { duration: 50 }), withTiming(-6, { duration: 50 }), withTiming(0, { duration: 50 })));
+        announce('Those numbers did not match. Here are new ones to try.');
+        if (level !== 'off') shake.set(withSequence(withTiming(-10, { duration: 50 }), withTiming(10, { duration: 50 }), withTiming(-6, { duration: 50 }), withTiming(0, { duration: 50 })));
         setTimeout(() => {
           setEntry([]);
           setChallenge(makeChallenge());
@@ -79,7 +92,13 @@ export default function ParentGate() {
         </Animated.View>
       </View>
       <FitBox style={styles.foxWrap} aspect={0.86} max={300} min={0}>
-        {(size) => (size >= 90 ? <Fox pose="wave" size={size} /> : null)}
+        {(size) =>
+          size >= 90 ? (
+            <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden aria-hidden>
+              <Fox pose="wave" size={size} interactive={false} />
+            </View>
+          ) : null
+        }
       </FitBox>
       <View style={[styles.pad, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
         {keys.map((k, i) => (

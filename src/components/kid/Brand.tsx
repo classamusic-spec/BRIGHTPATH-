@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { Txt } from '@/components/ui';
@@ -14,8 +14,13 @@ export function SunMark({ size = 120 }: { size?: number }) {
   const level = useMotionLevel();
   const t = useSharedValue(0);
   useEffect(() => {
-    if (level === 'off') return;
+    if (level === 'off') {
+      cancelAnimation(t);
+      t.value = 0.5;
+      return;
+    }
     t.value = withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(t);
   }, [level, t]);
   const rays = useAnimatedStyle(() => ({ transform: [{ scale: 0.94 + t.value * 0.08 }, { rotate: `${(t.value - 0.5) * 6}deg` }] }));
   // Box ends a little below the cloud so the wordmark never touches it.

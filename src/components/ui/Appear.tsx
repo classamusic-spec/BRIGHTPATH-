@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 
 import { useMotionLevel } from '@/lib/motion';
+import { durations } from '@/theme/motion';
 
-/** Gentle entrance for cards and rows. Disabled with Reduced Motion. */
+/** Entrance for cards and rows: rises in (full), fades in (gentle), or none (off). */
 export function Appear({
   children,
   delay = 0,
@@ -18,10 +19,11 @@ export function Appear({
 }) {
   const level = useMotionLevel();
   if (level === 'off') return <Animated.View style={style}>{children}</Animated.View>;
-  const d = level === 'gentle' ? 380 : 460;
-  const base = from === 'zoom' ? ZoomIn : from === 'up' ? FadeInUp : FadeInDown;
+  // Gentle motion is a plain fade: no travel, no zoom.
+  const entering =
+    level === 'gentle' ? FadeIn.delay(delay).duration(durations.slow) : (from === 'zoom' ? ZoomIn : from === 'up' ? FadeInUp : FadeInDown).delay(delay).duration(460);
   return (
-    <Animated.View style={style} entering={base.delay(delay).duration(d)}>
+    <Animated.View style={style} entering={entering}>
       {children}
     </Animated.View>
   );

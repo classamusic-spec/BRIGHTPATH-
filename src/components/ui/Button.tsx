@@ -28,9 +28,10 @@ export function Button({
   accessibilityHint?: string;
 }) {
   const h = size === 'lg' ? 62 : size === 'md' ? 48 : 38;
+  // Smaller buttons carry smaller white text, so they sit on the deeper blue for AA contrast.
   const bg =
-    kind === 'primary' ? colors.primary : kind === 'soft' ? colors.primarySoft : kind === 'white' ? colors.card : kind === 'danger' ? '#FDE7EC' : 'transparent';
-  const fg = kind === 'primary' ? colors.onPrimary : kind === 'danger' ? '#D8385E' : colors.text;
+    kind === 'primary' ? (size === 'lg' ? colors.primary : colors.primaryPressed) : kind === 'soft' ? colors.primarySoft : kind === 'white' ? colors.card : kind === 'danger' ? '#FDE7EC' : 'transparent';
+  const fg = kind === 'primary' ? colors.onPrimary : kind === 'danger' ? colors.dangerText : colors.text;
   return (
     <Tap
       onPress={onPress}
@@ -40,7 +41,7 @@ export function Button({
       accessibilityHint={accessibilityHint}
       style={[
         styles.base,
-        { height: h, backgroundColor: bg, borderRadius: radius.pill },
+        { minHeight: h, backgroundColor: bg, borderRadius: radius.pill },
         kind === 'primary' ? shadows.button : null,
         kind === 'white' ? shadows.soft : null,
         style,
@@ -48,7 +49,7 @@ export function Button({
     >
       <View style={styles.row}>
         {icon}
-        <Txt v={size === 'lg' ? 'button' : size === 'md' ? 'buttonSm' : 'label'} color={fg} numberOfLines={1}>
+        <Txt v={size === 'lg' ? 'button' : size === 'md' ? 'buttonSm' : 'label'} color={fg} numberOfLines={2} center>
           {title}
         </Txt>
       </View>
@@ -57,6 +58,6 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  base: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
 });

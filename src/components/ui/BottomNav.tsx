@@ -16,7 +16,7 @@ export function BottomNav({ items, active }: { items: NavItem[]; active: string 
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]} accessibilityRole="tablist">
       {items.map((it) => {
         const on = it.key === active;
-        const col = on ? '#1A6CF2' : '#7D93CE';
+        const col = on ? '#1A6CF2' : '#5F72B5';
         return (
           <Tap
             key={it.key}

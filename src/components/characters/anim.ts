@@ -52,8 +52,12 @@ function jitter(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-/** Natural blinking: 1 = open, 0 = closed, with the odd double-blink. */
-export function useBlink(enabled: boolean): SharedValue<number> {
+/**
+ * Natural blinking: 1 = open, 0 = closed, with the odd double-blink.
+ * 'slow' keeps a rare, gentle blink (every 6–9 s) for reduced motion so the
+ * character never looks frozen.
+ */
+export function useBlink(enabled: boolean, mode: 'normal' | 'slow' = 'normal'): SharedValue<number> {
   const v = useSharedValue(1);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -62,24 +66,25 @@ export function useBlink(enabled: boolean): SharedValue<number> {
       return;
     }
     let alive = true;
+    const slow = mode === 'slow';
     const schedule = () => {
       timer.current = setTimeout(() => {
         if (!alive) return;
-        const close = withTiming(0, { duration: 70, easing: Easing.in(Easing.quad) });
-        const open = withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) });
+        const close = withTiming(0, { duration: slow ? 110 : 70, easing: Easing.in(Easing.quad) });
+        const open = withTiming(1, { duration: slow ? 180 : 120, easing: Easing.out(Easing.quad) });
         v.value =
-          Math.random() < 0.22
+          !slow && Math.random() < 0.22
             ? withSequence(close, open, withDelay(90, withTiming(0, { duration: 70 })), open)
             : withSequence(close, open);
         schedule();
-      }, jitter(2200, 5200));
+      }, slow ? jitter(6000, 9000) : jitter(2200, 5200));
     };
     schedule();
     return () => {
       alive = false;
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [enabled, v]);
+  }, [enabled, mode, v]);
   return v;
 }
 
@@ -139,8 +144,11 @@ export function useWave(enabled: boolean, gentle = false): SharedValue<number> {
   return v;
 }
 
-/** Repeating hop used by celebration poses: 0 ground → 1 apex. */
-export function useHop(enabled: boolean, period = 1100, rest = 700): SharedValue<number> {
+/**
+ * Hop used by celebration poses: -0.25 crouch → 1 apex → land. Repeats `count`
+ * times (-1 = forever) and then rests on the ground.
+ */
+export function useHop(enabled: boolean, period = 1100, rest = 700, count = -1): SharedValue<number> {
   const v = useSharedValue(0);
   useEffect(() => {
     if (!enabled) {
@@ -150,16 +158,17 @@ export function useHop(enabled: boolean, period = 1100, rest = 700): SharedValue
     }
     v.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: period * 0.42, easing: Easing.out(Easing.quad) }),
+        withTiming(-0.25, { duration: period * 0.12, easing: Easing.inOut(Easing.quad) }),
+        withTiming(1, { duration: period * 0.3, easing: Easing.out(Easing.quad) }),
         withTiming(0, { duration: period * 0.38, easing: Easing.in(Easing.quad) }),
         withTiming(-0.35, { duration: period * 0.1, easing: Easing.out(Easing.quad) }),
         withTiming(0, { duration: period * 0.1 }),
         withDelay(rest, withTiming(0, { duration: 10 })),
       ),
-      -1,
+      count,
       false,
     );
     return () => cancelAnimation(v);
-  }, [enabled, period, rest, v]);
+  }, [enabled, period, rest, count, v]);
   return v;
 }

@@ -1,8 +1,7 @@
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Icon } from '@/components/icons/Icon';
 import { fitFontSize } from '@/lib/fitText';
@@ -11,20 +10,20 @@ import { colors, fonts, GUTTER } from '@/theme';
 import { Tap } from './Tap';
 import { Txt } from './Txt';
 
-/** Pale-blue canvas with a whisper of gradient, as on the reference boards. */
+const CANVAS_GRADIENT = 'linear-gradient(180deg, #EBF4FD 0%, #F3F8FD 45%, #F5F9FE 100%)';
+
+/**
+ * Pale-blue canvas with a whisper of gradient, as on the reference boards.
+ * A styled View (CSS gradient on web, background image natively) instead of a
+ * full-screen SVG; where gradients are unsupported it is the flat bg colour.
+ */
+const canvasFill: ViewStyle = Platform.select<ViewStyle>({
+  web: { backgroundImage: CANVAS_GRADIENT } as ViewStyle,
+  default: { experimental_backgroundImage: CANVAS_GRADIENT },
+})!;
+
 export function Canvas({ style }: { style?: StyleProp<ViewStyle> }) {
-  return (
-    <Svg style={[StyleSheet.absoluteFill, style]} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
-      <Defs>
-        <LinearGradient id="bpCanvas" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#EBF4FD" />
-          <Stop offset="0.45" stopColor="#F3F8FD" />
-          <Stop offset="1" stopColor="#F5F9FE" />
-        </LinearGradient>
-      </Defs>
-      <Rect x={0} y={0} width={100} height={100} fill="url(#bpCanvas)" />
-    </Svg>
-  );
+  return <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }, canvasFill, style]} pointerEvents="none" />;
 }
 
 export function Screen({
@@ -33,6 +32,7 @@ export function Screen({
   footer,
   scroll = true,
   padded = true,
+  footerPadded = true,
   background,
   contentStyle,
   edges = ['top', 'bottom'],
@@ -42,6 +42,8 @@ export function Screen({
   footer?: ReactNode;
   scroll?: boolean;
   padded?: boolean;
+  /** Side gutter on the footer, independent of `padded` (default true). */
+  footerPadded?: boolean;
   background?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
   edges?: ('top' | 'bottom')[];
@@ -54,27 +56,33 @@ export function Screen({
     <View style={styles.root}>
       {background ?? <Canvas />}
       <View style={{ paddingTop: top }}>{header}</View>
-      {scroll ? (
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={[{ paddingHorizontal: pad, paddingBottom: footer ? 16 : bottom + 16 }, contentStyle]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[styles.flex, { paddingHorizontal: pad, paddingBottom: footer ? 0 : bottom }, contentStyle]}>{children}</View>
-      )}
-      {footer ? <View style={{ paddingHorizontal: pad, paddingBottom: bottom, paddingTop: 10 }}>{footer}</View> : null}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}>
+        {scroll ? (
+          <ScrollView
+            style={styles.flex}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            contentContainerStyle={[{ paddingHorizontal: pad, paddingBottom: footer ? 16 : bottom + 16 }, contentStyle]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[styles.flex, { paddingHorizontal: pad, paddingBottom: footer ? 0 : bottom }, contentStyle]}>{children}</View>
+        )}
+        {footer ? <View style={{ paddingHorizontal: footerPadded ? GUTTER : 0, paddingBottom: bottom, paddingTop: 10 }}>{footer}</View> : null}
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 export function BackButton({ onPress, color = colors.ink }: { onPress?: () => void; color?: string }) {
+  const pathname = usePathname();
+  // With no history (deep link, refresh), fall back to the hub of the current space.
+  const fallback = pathname.startsWith('/coach') ? '/coach' : '/kid/home';
   return (
     <Tap
-      onPress={onPress ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))}
+      onPress={onPress ?? (() => (router.canGoBack() ? router.back() : router.replace(fallback)))}
       accessibilityLabel="Go back"
       style={styles.back}
       hitSlop={10}

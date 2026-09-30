@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import { Text, type TextProps, type TextStyle } from 'react-native';
 
 import { colors, type } from '@/theme';
@@ -11,8 +12,12 @@ export type TxtProps = TextProps & {
   style?: TextStyle | TextStyle[];
 };
 
+/** Largest OS text-size multiplier Txt honours. Kid screens cap at 1.4; coach screens allow 2. */
+export const MaxScale = createContext(1.4);
+
 /** Themed text. Defaults to body copy in BrightPath navy-blue. */
 export function Txt({ v = 'body', color, center, style, ...rest }: TxtProps) {
+  const maxScale = useContext(MaxScale);
   const base = type[v];
   const defaultColor =
     v === 'logo' || v === 'display' || v === 'title' || v === 'titleSm' || v === 'heading' || v === 'subheading' || v === 'number'
@@ -20,7 +25,7 @@ export function Txt({ v = 'body', color, center, style, ...rest }: TxtProps) {
       : colors.text;
   return (
     <Text
-      maxFontSizeMultiplier={1.4}
+      maxFontSizeMultiplier={maxScale}
       {...rest}
       style={[base, { color: color ?? defaultColor }, center ? { textAlign: 'center' } : null, style as TextStyle]}
     />

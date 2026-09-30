@@ -36,7 +36,12 @@ export function Card({
       </Tap>
     );
   }
-  return <View style={[base, style]}>{children}</View>;
+  // A static card with a label is read as one element (e.g. a locked room tile).
+  return (
+    <View style={[base, style]} accessible={!!accessibilityLabel} accessibilityLabel={accessibilityLabel}>
+      {children}
+    </View>
+  );
 }
 
 /** Rounded square tile holding an icon (list rows, tiles). */

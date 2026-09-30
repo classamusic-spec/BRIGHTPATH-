@@ -1,6 +1,4 @@
-import { Platform, type ViewStyle } from 'react-native';
-
-import { colors } from './colors';
+import type { ViewStyle } from 'react-native';
 
 export { colors, tones, type Tone, type ColorName } from './colors';
 export { fonts, type } from './typography';
@@ -28,25 +26,18 @@ export const radius = {
   pill: 999,
 } as const;
 
-function shadow(opacity: number, radiusPx: number, y: number, elevation: number): ViewStyle {
-  return Platform.select<ViewStyle>({
-    web: {
-      boxShadow: `0px ${y}px ${radiusPx * 2}px rgba(46, 74, 140, ${opacity})`,
-    } as ViewStyle,
-    default: {
-      shadowColor: colors.shadow,
-      shadowOpacity: opacity,
-      shadowRadius: radiusPx,
-      shadowOffset: { width: 0, height: y },
-      elevation,
-    },
-  })!;
+/**
+ * Soft navy shadow. RN 0.86 renders CSS `boxShadow` natively on iOS and
+ * Android, so every platform gets the same blurred shadow (no elevation).
+ */
+function shadow(opacity: number, radiusPx: number, y: number): ViewStyle {
+  return { boxShadow: `0px ${y}px ${radiusPx * 2}px rgba(46, 74, 140, ${opacity})` };
 }
 
 export const shadows = {
   none: {} as ViewStyle,
-  soft: shadow(0.07, 10, 3, 2),
-  card: shadow(0.09, 14, 5, 3),
-  raised: shadow(0.14, 18, 8, 6),
-  button: shadow(0.22, 12, 6, 5),
+  soft: shadow(0.07, 10, 3),
+  card: shadow(0.09, 14, 5),
+  raised: shadow(0.14, 18, 8),
+  button: shadow(0.22, 12, 6),
 };

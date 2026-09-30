@@ -19,12 +19,20 @@ export const colors = {
   inkDeep: '#08107A',
   text: '#1E2A9E',
   textSoft: '#4553B4',
-  textMuted: '#7F8AC4',
+  textMuted: '#5E6AAE',
+  /** Decorative only — below AA for text. */
   textFaint: '#A7B0D8',
+  heading: '#1320C4',
+  alertText: '#C23A5C',
+  /** Text on mint chips and pills (AA on mintSoft). */
+  mintText: '#237A48',
+  /** Text on blush / danger fills (AA on blushSoft). */
+  dangerText: '#B8324F',
   onPrimary: '#FFFFFF',
 
   // Brand blues
   primary: '#2880FC',
+  /** Fill behind small white text (AA); also the pressed state. */
   primaryPressed: '#1B6CE6',
   primaryDeep: '#1459D4',
   primarySoft: '#E2EEFE',

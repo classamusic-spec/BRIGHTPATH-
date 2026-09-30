@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { Pressable, type AccessibilityRole, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type AccessibilityRole, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { tapHaptic } from '@/lib/feedback';
 import { useMotionLevel } from '@/lib/motion';
 import { playSound } from '@/lib/sound';
+import { durations, easings, springs } from '@/theme/motion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -20,7 +21,7 @@ export type TapProps = {
   haptic?: boolean;
   accessibilityLabel?: string;
   accessibilityRole?: AccessibilityRole;
-  accessibilityState?: { selected?: boolean; checked?: boolean; disabled?: boolean };
+  accessibilityState?: { selected?: boolean; checked?: boolean | 'mixed'; disabled?: boolean; expanded?: boolean; busy?: boolean };
   accessibilityHint?: string;
   hitSlop?: number;
   testID?: string;
@@ -45,17 +46,25 @@ export function Tap({
 }: TapProps) {
   const level = useMotionLevel();
   const s = useSharedValue(1);
-  const anim = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  // With motion off the squish is replaced by a plain dim while pressed.
+  const o = useSharedValue(1);
+  // Keep any opacity the caller set (e.g. a used chip); disabled always reads at half.
+  const base = StyleSheet.flatten(style)?.opacity;
+  const dim = disabled ? 0.5 : typeof base === 'number' ? base : 1;
+  const anim = useAnimatedStyle(() => ({ opacity: dim * o.value, transform: [{ scale: s.value }] }));
+  const st = { disabled, ...accessibilityState };
   return (
     <AnimatedPressable
       testID={testID}
       disabled={disabled}
       hitSlop={hitSlop}
       onPressIn={() => {
-        if (level !== 'off') s.set(withTiming(scale, { duration: 90 }));
+        if (level === 'off') o.set(0.8);
+        else s.set(withTiming(scale, { duration: durations.press, easing: easings.out }));
       }}
       onPressOut={() => {
-        s.set(withSpring(1, { damping: 12, stiffness: 260 }));
+        o.set(1);
+        s.set(level === 'off' ? 1 : withSpring(1, springs.press));
       }}
       onPress={() => {
         if (haptic) tapHaptic();
@@ -65,9 +74,14 @@ export function Tap({
       onLongPress={onLongPress}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled, ...accessibilityState }}
+      accessibilityState={st}
       accessibilityHint={accessibilityHint}
-      style={[style, anim, disabled ? { opacity: 0.5 } : null]}
+      aria-disabled={!!st.disabled}
+      aria-selected={st.selected}
+      aria-checked={st.checked}
+      aria-expanded={st.expanded}
+      aria-busy={st.busy}
+      style={[style, anim]}
     >
       {children}
     </AnimatedPressable>

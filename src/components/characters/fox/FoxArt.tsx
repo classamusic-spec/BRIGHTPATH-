@@ -6,7 +6,7 @@
  * pose's own viewBox. Every gradient id is prefixed so several foxes (and
  * several rig layers) can coexist on one web page.
  */
-import { memo } from 'react';
+import { Fragment, memo, type ReactNode } from 'react';
 import {
   Circle,
   Defs,
@@ -47,69 +47,116 @@ export const FOX = {
 export type Eyes = 'open' | 'joy' | 'calm' | 'down' | 'side';
 export type Mouth = 'open' | 'big' | 'smile' | 'calm' | 'o' | 'flat';
 
-export type Expression = 'happy' | 'joy' | 'calm' | 'focus' | 'smile' | 'surprised' | 'sleepy';
+export type Brows = 'none' | 'neutral' | 'concerned';
 
-export const EXPRESSIONS: Record<Expression, { eyes: Eyes; mouth: Mouth; blush: number }> = {
-  happy: { eyes: 'open', mouth: 'open', blush: 0.3 },
-  joy: { eyes: 'joy', mouth: 'big', blush: 0.45 },
-  calm: { eyes: 'calm', mouth: 'calm', blush: 0.35 },
-  sleepy: { eyes: 'calm', mouth: 'smile', blush: 0.35 },
-  focus: { eyes: 'down', mouth: 'smile', blush: 0.28 },
-  smile: { eyes: 'open', mouth: 'smile', blush: 0.3 },
-  surprised: { eyes: 'open', mouth: 'o', blush: 0.3 },
+export type Expression =
+  | 'happy'
+  | 'joy'
+  | 'calm'
+  | 'focus'
+  | 'smile'
+  | 'surprised'
+  | 'sleepy'
+  | 'empathy'
+  | 'thinking';
+
+export const EXPRESSIONS: Record<Expression, { eyes: Eyes; mouth: Mouth; blush: number; brows: Brows }> = {
+  happy: { eyes: 'open', mouth: 'open', blush: 0.3, brows: 'none' },
+  joy: { eyes: 'joy', mouth: 'big', blush: 0.45, brows: 'none' },
+  calm: { eyes: 'calm', mouth: 'calm', blush: 0.35, brows: 'none' },
+  sleepy: { eyes: 'calm', mouth: 'smile', blush: 0.35, brows: 'none' },
+  focus: { eyes: 'down', mouth: 'smile', blush: 0.28, brows: 'none' },
+  smile: { eyes: 'open', mouth: 'smile', blush: 0.3, brows: 'none' },
+  surprised: { eyes: 'open', mouth: 'o', blush: 0.3, brows: 'none' },
+  /** Soft, caring look for when a friend is having a hard time. */
+  empathy: { eyes: 'open', mouth: 'smile', blush: 0.4, brows: 'concerned' },
+  thinking: { eyes: 'side', mouth: 'flat', blush: 0.28, brows: 'neutral' },
 };
 
-/** Gradient definitions. `p` is the unique id prefix for this sheet. */
-export const FoxDefs = memo(function FoxDefs({ p }: { p: string }) {
+export type FoxGradient = 'fur' | 'limb' | 'body' | 'ear' | 'earIn' | 'cream' | 'paw' | 'pack' | 'tail' | 'book';
+
+const GRADIENTS: Record<FoxGradient, (p: string) => ReactNode> = {
+  fur: (p) => (
+    <RadialGradient id={`${p}fur`} cx="50%" cy="30%" rx="62%" ry="70%" fx="50%" fy="28%">
+      <Stop offset="0" stopColor={FOX.furLight} />
+      <Stop offset="0.62" stopColor={FOX.fur} />
+      <Stop offset="1" stopColor={FOX.furDeep} />
+    </RadialGradient>
+  ),
+  limb: (p) => (
+    <LinearGradient id={`${p}limb`} x1="0" y1="0" x2="1" y2="1">
+      <Stop offset="0" stopColor={FOX.furLight} />
+      <Stop offset="1" stopColor={FOX.furDeep} />
+    </LinearGradient>
+  ),
+  body: (p) => (
+    <LinearGradient id={`${p}body`} x1="0.2" y1="0" x2="0.8" y2="1">
+      <Stop offset="0" stopColor={FOX.furLight} />
+      <Stop offset="0.55" stopColor={FOX.fur} />
+      <Stop offset="1" stopColor={FOX.furDeep} />
+    </LinearGradient>
+  ),
+  ear: (p) => (
+    <LinearGradient id={`${p}ear`} x1="0.35" y1="0" x2="0.6" y2="1">
+      <Stop offset="0" stopColor={FOX.dark} />
+      <Stop offset="0.3" stopColor="#8A4121" />
+      <Stop offset="0.58" stopColor={FOX.fur} />
+      <Stop offset="1" stopColor={FOX.fur} />
+    </LinearGradient>
+  ),
+  earIn: (p) => (
+    <LinearGradient id={`${p}earIn`} x1="0.4" y1="0" x2="0.5" y2="1">
+      <Stop offset="0" stopColor="#E98673" />
+      <Stop offset="1" stopColor={FOX.earInnerLight} />
+    </LinearGradient>
+  ),
+  cream: (p) => (
+    <RadialGradient id={`${p}cream`} cx="50%" cy="35%" rx="60%" ry="70%">
+      <Stop offset="0" stopColor="#FFFFFF" />
+      <Stop offset="0.7" stopColor={FOX.cream} />
+      <Stop offset="1" stopColor={FOX.creamShade} />
+    </RadialGradient>
+  ),
+  paw: (p) => (
+    <LinearGradient id={`${p}paw`} x1="0" y1="0" x2="0.6" y2="1">
+      <Stop offset="0" stopColor={FOX.darkLight} />
+      <Stop offset="1" stopColor={FOX.dark} />
+    </LinearGradient>
+  ),
+  pack: (p) => (
+    <LinearGradient id={`${p}pack`} x1="0" y1="0" x2="1" y2="1">
+      <Stop offset="0" stopColor={FOX.packLight} />
+      <Stop offset="0.6" stopColor={FOX.pack} />
+      <Stop offset="1" stopColor={FOX.packDeep} />
+    </LinearGradient>
+  ),
+  tail: (p) => (
+    <LinearGradient id={`${p}tail`} x1="1" y1="1" x2="0" y2="0">
+      <Stop offset="0" stopColor={FOX.furDeep} />
+      <Stop offset="0.5" stopColor={FOX.fur} />
+      <Stop offset="1" stopColor={FOX.furLight} />
+    </LinearGradient>
+  ),
+  book: (p) => (
+    <LinearGradient id={`${p}book`} x1="0" y1="0" x2="1" y2="1">
+      <Stop offset="0" stopColor={FOX.bookLight} />
+      <Stop offset="1" stopColor={FOX.book} />
+    </LinearGradient>
+  ),
+};
+
+const ALL_GRADIENTS = Object.keys(GRADIENTS) as FoxGradient[];
+
+/**
+ * Gradient definitions. `p` is the unique id prefix for this sheet; `ids`
+ * limits the output to the gradients the sheet actually paints with.
+ */
+export const FoxDefs = memo(function FoxDefs({ p, ids = ALL_GRADIENTS }: { p: string; ids?: readonly FoxGradient[] }) {
   return (
     <Defs>
-      <RadialGradient id={`${p}fur`} cx="50%" cy="30%" rx="62%" ry="70%" fx="50%" fy="28%">
-        <Stop offset="0" stopColor={FOX.furLight} />
-        <Stop offset="0.62" stopColor={FOX.fur} />
-        <Stop offset="1" stopColor={FOX.furDeep} />
-      </RadialGradient>
-      <LinearGradient id={`${p}limb`} x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor={FOX.furLight} />
-        <Stop offset="1" stopColor={FOX.furDeep} />
-      </LinearGradient>
-      <LinearGradient id={`${p}body`} x1="0.2" y1="0" x2="0.8" y2="1">
-        <Stop offset="0" stopColor={FOX.furLight} />
-        <Stop offset="0.55" stopColor={FOX.fur} />
-        <Stop offset="1" stopColor={FOX.furDeep} />
-      </LinearGradient>
-      <LinearGradient id={`${p}ear`} x1="0.35" y1="0" x2="0.6" y2="1">
-        <Stop offset="0" stopColor={FOX.dark} />
-        <Stop offset="0.3" stopColor="#8A4121" />
-        <Stop offset="0.58" stopColor={FOX.fur} />
-        <Stop offset="1" stopColor={FOX.fur} />
-      </LinearGradient>
-      <LinearGradient id={`${p}earIn`} x1="0.4" y1="0" x2="0.5" y2="1">
-        <Stop offset="0" stopColor="#E98673" />
-        <Stop offset="1" stopColor={FOX.earInnerLight} />
-      </LinearGradient>
-      <RadialGradient id={`${p}cream`} cx="50%" cy="35%" rx="60%" ry="70%">
-        <Stop offset="0" stopColor="#FFFFFF" />
-        <Stop offset="0.7" stopColor={FOX.cream} />
-        <Stop offset="1" stopColor={FOX.creamShade} />
-      </RadialGradient>
-      <LinearGradient id={`${p}paw`} x1="0" y1="0" x2="0.6" y2="1">
-        <Stop offset="0" stopColor={FOX.darkLight} />
-        <Stop offset="1" stopColor={FOX.dark} />
-      </LinearGradient>
-      <LinearGradient id={`${p}pack`} x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor={FOX.packLight} />
-        <Stop offset="0.6" stopColor={FOX.pack} />
-        <Stop offset="1" stopColor={FOX.packDeep} />
-      </LinearGradient>
-      <LinearGradient id={`${p}tail`} x1="1" y1="1" x2="0" y2="0">
-        <Stop offset="0" stopColor={FOX.furDeep} />
-        <Stop offset="0.5" stopColor={FOX.fur} />
-        <Stop offset="1" stopColor={FOX.furLight} />
-      </LinearGradient>
-      <LinearGradient id={`${p}book`} x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor={FOX.bookLight} />
-        <Stop offset="1" stopColor={FOX.book} />
-      </LinearGradient>
+      {ids.map((id) => (
+        <Fragment key={id}>{GRADIENTS[id](p)}</Fragment>
+      ))}
     </Defs>
   );
 });
@@ -121,11 +168,11 @@ const u = (p: string, name: string) => `url(#${p}${name})`;
 /* ------------------------------------------------------------------------ */
 
 const EAR_OUTER =
-  'M -63 -4 C -72 -34 -69 -66 -57 -93 C -39 -86 -22 -68 -9 -46 C -26 -40 -47 -26 -63 -4 Z';
+  'M -64 -2 C -72 -30 -70 -58 -60 -80 C -42 -76 -22 -62 -6 -44 C -26 -38 -48 -24 -64 -2 Z';
 const EAR_INNER =
-  'M -54 -27 C -59 -47 -58 -63 -53 -77 C -41 -70 -32 -59 -24 -47 C -34 -42 -46 -35 -54 -27 Z';
+  'M -54 -27 C -59 -42 -58 -54 -55 -65 C -43 -60 -33 -52 -24 -44 C -34 -40 -46 -34 -54 -27 Z';
 const EAR_FLUFF =
-  'M -56 -23 L -52 -36 L -47 -28 L -43 -40 L -39 -31 L -34 -43 L -30 -35 L -23 -44 C -32 -35 -45 -28 -56 -23 Z';
+  'M -56 -23 L -52 -33 L -47 -27 L -43 -37 L -39 -30 L -34 -39 L -30 -33 L -23 -41 C -32 -34 -45 -28 -56 -23 Z';
 
 export function Ear({ p, side }: { p: string; side: 'left' | 'right' }) {
   return (
@@ -177,6 +224,18 @@ export function Nose() {
         fill={FOX.nose}
       />
       <Ellipse cx={-2.2} cy={11.2} rx={2.4} ry={1.2} fill="#FFFFFF" opacity={0.45} />
+    </G>
+  );
+}
+
+/** Brows sit on the fur above the eye patches (local head frame). */
+export function BrowsPart({ kind }: { kind: Brows }) {
+  if (kind === 'none') return null;
+  const d = kind === 'concerned' ? 'M -36 -20 Q -27 -22 -15 -28' : 'M -36 -21 Q -25 -26 -14 -22';
+  return (
+    <G fill="none" stroke="#8A4121" strokeWidth={3.2} strokeLinecap="round">
+      <Path d={d} />
+      <Path d={d} transform="scale(-1 1)" />
     </G>
   );
 }
