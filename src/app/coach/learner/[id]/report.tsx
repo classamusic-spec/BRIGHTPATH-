@@ -2,13 +2,12 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { AreaIcon, AREA_META, GrowBar } from '@/components/coach/Kit';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
+import { AREA_META, AreaIcon, GrowBar, ShareAction, withRouteLearner } from '@/components/coach/Kit';
 import { Icon } from '@/components/icons/Icon';
 import { Appear, Card, Header, PillTabs, ProgressBar, Screen, SegmentedTabs, Txt } from '@/components/ui';
 import { KIND_LABEL } from '@/engine/decision';
 import { RANGE_DAYS, type RangeKey } from '@/engine/summary';
-import type { SkillArea } from '@/engine/types';
+import type { Learner, SkillArea } from '@/engine/types';
 import { useGoalViews, useInsights, useProgressReport } from '@/store/derived';
 import { colors, radius } from '@/theme';
 
@@ -21,17 +20,25 @@ const BAR_COLOR: Partial<Record<SkillArea, string>> = {
 };
 
 /** 36 · Progress Report */
-export default function ProgressReport() {
-  const learner = useRouteLearner();
+export default withRouteLearner(ProgressReport);
+
+function ProgressReport({ learner }: { learner: Learner }) {
   const [tab, setTab] = useState<'overview' | 'skills' | 'goals' | 'insights'>('overview');
   const [range, setRange] = useState<RangeKey>('1M');
   const report = useProgressReport(learner.id, range);
   const views = useGoalViews(learner.id);
   const insights = useInsights(learner.id, learner.displayName);
   const H = 190;
+  const growing = report.skillsGrowing > 0;
+  const shareText = [
+    `${learner.displayName} — Progress Report (last ${RANGE_DAYS[range]} days)`,
+    ...report.bars.map((b) => `${AREA_META[b.area].label}: ${b.n ? `${Math.round(b.score * 100)}% across ${b.n} observation${b.n === 1 ? '' : 's'}` : 'not enough evidence yet'}`),
+    `Goals with growth: ${report.skillsGrowing} of ${report.goalsInProgress} in progress.`,
+    ...report.milestones.map((m) => `Milestone: ${m.label}`),
+  ].join('\n');
 
   return (
-    <Screen header={<Header title="Progress Report" />}>
+    <Screen header={<Header title="Progress Report" right={<ShareAction title="Progress Report" message={shareText} />} />}>
       <SegmentedTabs
         items={[
           { key: 'overview', label: 'Overview' },
@@ -47,14 +54,23 @@ export default function ProgressReport() {
       {(tab === 'overview' || tab === 'skills') && (
         <Appear key={range}>
           <View style={{ marginTop: 18 }}>
-            <View style={{ height: H, justifyContent: 'flex-end' }}>
+            <View style={{ height: H + 22, justifyContent: 'flex-end' }}>
               {[0.25, 0.5, 0.75, 1].map((g) => (
                 <View key={g} style={{ position: 'absolute', left: 0, right: 0, bottom: g * H, height: 1, backgroundColor: '#E1E8F4' }} />
               ))}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around' }}>
                 {report.bars.map((b, i) => (
-                  <View key={b.area} accessible accessibilityLabel={`${AREA_META[b.area].label}: ${b.n ? Math.round(b.score * 100) + '%' : 'not enough evidence'}`}>
-                    <GrowBar value={b.n ? b.score : 0.02} color={BAR_COLOR[b.area] ?? colors.primary} height={H} width={58} delay={i * 80} radiusPx={12} />
+                  <View key={b.area} style={{ alignItems: 'center', width: 70 }} accessible accessibilityLabel={`${AREA_META[b.area].label}: ${b.n ? `${Math.round(b.score * 100)}%, ${b.n} observation${b.n === 1 ? '' : 's'}${b.n < 4 ? ', limited evidence' : ''}` : 'not enough evidence'}`}>
+                    <Txt v="caption" color={colors.textMuted} style={{ fontSize: 13, marginBottom: 4 }}>
+                      {b.n ? `${Math.round(b.score * 100)}%` : '—'}
+                    </Txt>
+                    {b.n ? (
+                      <View style={{ opacity: b.n < 4 ? 0.4 : 1 }}>
+                        <GrowBar value={b.score} color={BAR_COLOR[b.area] ?? colors.primary} height={H} width={58} delay={i * 80} radiusPx={12} />
+                      </View>
+                    ) : (
+                      <View style={{ width: 58, height: 40, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: '#C6D3EA' }} />
+                    )}
                   </View>
                 ))}
               </View>
@@ -66,6 +82,11 @@ export default function ProgressReport() {
                   <Txt v="body" color={colors.text} style={{ fontSize: 15, marginTop: 2 }}>
                     {AREA_META[b.area].short}
                   </Txt>
+                  {b.n > 0 && b.n < 4 ? (
+                    <Txt v="caption" center color={colors.textMuted} style={{ fontSize: 12 }}>
+                      limited evidence
+                    </Txt>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -81,8 +102,8 @@ export default function ProgressReport() {
               { icon: <Icon name="target" size={50} />, value: report.goalsInProgress, label: 'Goals in Progress', color: colors.cobalt },
               { icon: <Icon name="star" size={50} />, value: report.milestones.length, label: 'New Milestones', color: '#E0264F' },
             ].map((s, i) => (
-              <Appear key={s.label} delay={i * 70} style={{ flex: 1 }}>
-                <Card style={{ alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4 }}>
+              <Appear key={s.label} delay={i * 70} style={{ flex: 1, flexBasis: 0, minWidth: 0 }}>
+                <Card style={{ flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4 }}>
                   {s.icon}
                   <Txt v="number" color={s.color} style={{ fontSize: 30, marginTop: 4 }}>
                     {String(s.value)}
@@ -97,14 +118,14 @@ export default function ProgressReport() {
           <Card tone="tint" style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16 }}>
             <Icon name="barsGreen" size={62} />
             <View style={{ flex: 1 }}>
-              <Txt v="subheading" color="#1320C4">
-                Steady progress!
+              <Txt v="subheading" color={colors.heading}>
+                {growing ? 'Steady progress!' : 'Early days — keep noticing.'}
               </Txt>
-              <Txt v="body" color={colors.text}>{`${learner.displayName} is building new skills every day.`}</Txt>
+              <Txt v="body" color={colors.text}>{growing ? `${report.skillsGrowing} of ${learner.displayName}’s goals show growth in this range.` : `Each observation helps show what’s working for ${learner.displayName}.`}</Txt>
             </View>
           </Card>
           <Txt v="caption" color={colors.textMuted} style={{ marginTop: 10 }}>
-            “Skills growing” counts goal dimensions that increased in this range. Bars show how accessible each area was (outcome and support), not a grade.
+            “Skills growing” counts goals whose journey moved forward in this range, once they have at least 6 valid observations. Bars show how accessible each area was (outcome and support), not a grade; faded bars rest on fewer than 4 observations.
           </Txt>
         </>
       )}

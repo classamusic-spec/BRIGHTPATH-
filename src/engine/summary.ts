@@ -3,8 +3,8 @@
  * Plain language first, observable wording, evidence-linked, non-diagnostic.
  */
 import { recommend } from './decision';
-import { DAY_MS, dimensionScores, isSuccess, outcomeScore, summarize } from './evidence';
-import { DIMENSIONS, type GrowthGoal, type Observation, type SkillArea } from './types';
+import { DAY_MS, isSuccess, journeyProgress, outcomeScore, summarize } from './evidence';
+import { type GrowthGoal, type Observation, type SkillArea } from './types';
 
 export const AREA_LABEL: Record<SkillArea, string> = {
   communication: 'Communication',
@@ -48,6 +48,10 @@ export function inRange(o: Observation, start: Date, end: Date): boolean {
   return t >= start.getTime() && t < end.getTime();
 }
 
+/** Usable observations each week needs before two weeks are compared. */
+export const MIN_WEEK_EVIDENCE = 5;
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+
 const usable = (o: Observation) => o.quality === 'valid' && o.outcome !== 'accessLimited';
 
 export function areaScore(obs: Observation[], area: SkillArea): { score: number; n: number } {
@@ -84,6 +88,10 @@ export interface WeeklySummary {
   goals: number;
   celebrations: number;
   focus: { area: SkillArea; score: number; n: number }[];
+  /** Direction of `narrative.changed`; 'unknown' when the weeks cannot be compared fairly. */
+  changedTrend: 'up' | 'down' | 'steady' | 'unknown';
+  /** The anchor week is the current, unfinished week. */
+  weekSoFar: boolean;
   narrative: {
     summary: string;
     changed: string;
@@ -99,13 +107,14 @@ export function weeklySummary(
   goals: GrowthGoal[],
   all: Observation[],
   anchor: Date,
+  now: Date = new Date(),
 ): WeeklySummary {
   const { start, end } = weekBounds(anchor);
   const prevStart = new Date(start.getTime() - 7 * DAY_MS);
   const week = all.filter((o) => inRange(o, start, end) && o.quality !== 'invalid');
   const prev = all.filter((o) => inRange(o, prevStart, start) && o.quality !== 'invalid');
   const active = goals.filter((g) => g.status === 'active');
-  const goalsWithEvidence = active.filter((g) => week.some((o) => o.goalId === g.id)).length || active.length;
+  const goalsWithEvidence = active.filter((g) => week.some((o) => o.goalId === g.id)).length;
   const focusAreas: SkillArea[] = ['communication', 'emotions', 'routines', 'independence'];
   const focus = focusAreas.map((area) => ({ area, ...areaScore(week, area) }));
 
@@ -115,20 +124,34 @@ export function weeklySummary(
   const sources = [...srcCounts.entries()].sort((a, b) => b[1] - a[1]);
   const topSource = sources[0]?.[0];
 
-  // What changed: biggest area change in low-support successes
+  // What changed: the biggest change in low-support success rate, only when both weeks
+  // have enough usable evidence in that area to compare fairly.
   let changed = 'Not enough evidence yet to compare with last week.';
+  let changedTrend: WeeklySummary['changedTrend'] = 'unknown';
   let best = 0;
+  const lowRate = (xs: Observation[], area: SkillArea) => {
+    const u = xs.filter((o) => o.skillArea === area && usable(o));
+    return { n: u.length, rate: u.length ? u.filter((o) => isSuccess(o) && o.supportLevel <= 3).length / u.length : 0 };
+  };
+  let compared = false;
   for (const area of focusAreas) {
-    const now = week.filter((o) => o.skillArea === area && usable(o) && isSuccess(o) && o.supportLevel <= 3).length;
-    const before = prev.filter((o) => o.skillArea === area && usable(o) && isSuccess(o) && o.supportLevel <= 3).length;
-    if (Math.abs(now - before) > Math.abs(best) && (now >= 2 || before >= 2)) {
-      best = now - before;
-      changed =
-        now >= before
-          ? `${AREA_LABEL[area]}: low-support successes went from ${before} to ${now}.`
-          : `${AREA_LABEL[area]}: low-support successes went from ${before} to ${now} — worth a look at access and support.`;
+    const a = lowRate(week, area);
+    const b = lowRate(prev, area);
+    if (a.n < MIN_WEEK_EVIDENCE || b.n < MIN_WEEK_EVIDENCE) continue;
+    compared = true;
+    const diff = a.rate - b.rate;
+    if (Math.abs(diff) >= 0.1 && Math.abs(diff) > Math.abs(best)) {
+      best = diff;
+      changedTrend = diff > 0 ? 'up' : 'down';
+      changed = `Low-support success in ${AREA_LABEL[area].toLowerCase()} went from ${pct(b.rate)} to ${pct(a.rate)} of moments (${b.n} last week, ${a.n} this week).`;
     }
   }
+  if (compared && changedTrend === 'unknown') {
+    changedTrend = 'steady';
+    changed = 'Similar to last week in the areas with enough evidence to compare.';
+  }
+  const weekSoFar = now.getTime() >= start.getTime() && now.getTime() < end.getTime();
+  if (weekSoFar) changed = `Week so far: ${changed.charAt(0).toLowerCase()}${changed.slice(1)}`;
 
   // What helped: most common support level among successes
   const successes = week.filter((o) => usable(o) && isSuccess(o));
@@ -161,6 +184,8 @@ export function weeklySummary(
     goals: goalsWithEvidence,
     celebrations: week.filter(isCelebration).length,
     focus,
+    changedTrend,
+    weekSoFar,
     narrative: {
       summary: week.length
         ? `${name} had ${week.length} learning moment${week.length === 1 ? '' : 's'} this week${topSource ? `, mostly from ${SOURCE_LABEL[topSource].toLowerCase()}` : ''}.`
@@ -180,6 +205,9 @@ export interface KeyInsight {
   subtitle: string;
   detail: string;
   trend: 'up' | 'steady' | 'down' | 'unknown';
+  /** Moments counted this month and last month (for the evidence caption). */
+  count: number;
+  prevCount: number;
   evidenceIds: string[];
 }
 
@@ -215,29 +243,44 @@ export function keyInsights(name: string, all: Observation[], now: Date): KeyIns
     return fewerIsBetter ? (up ? 'down' : 'up') : up ? 'up' : 'down';
   };
 
+  const comm = trend(commCur.length, commPrv.length);
+  const emo = trend(bigCur.length, bigPrv.length, true);
+  const ind = trend(indCur.length, indPrv.length);
+  const words = (t: KeyInsight['trend'], area: string, up: [string, string], down: [string, string]): [string, string] =>
+    t === 'up' ? up : t === 'down' ? down : t === 'steady' ? [area, 'Holding steady'] : [area, 'Not enough evidence yet'];
+  const [commTitle, commSub] = words(comm, 'Communication', ['Stronger communication', 'More positive interactions'], ['Communication', 'Fewer logged successes this month']);
+  const [emoTitle, emoSub] = words(emo, 'Emotional regulation', ['Emotional regulation', 'Fewer big moments'], ['Big feelings', 'More challenging moments logged']);
+  const [indTitle, indSub] = words(ind, 'Independence', ['Growing independence', 'More confidence at home'], ['Independence', 'More support used at home']);
+
   return [
     {
       id: 'communication',
-      title: commCur.length >= commPrv.length ? 'Stronger communication' : 'Communication',
-      subtitle: commCur.length >= commPrv.length ? 'More positive interactions' : 'Fewer logged successes',
+      title: commTitle,
+      subtitle: commSub,
       detail: `${commCur.length} successful communication or social moments this month (last month ${commPrv.length}). ${schoolComm < 2 ? 'School evidence is still limited.' : `${schoolComm} came from school.`}`,
-      trend: trend(commCur.length, commPrv.length),
+      trend: comm,
+      count: commCur.length,
+      prevCount: commPrv.length,
       evidenceIds: commCur.map((o) => o.id),
     },
     {
       id: 'emotions',
-      title: bigCur.length <= bigPrv.length ? 'Emotional regulation' : 'Big feelings',
-      subtitle: bigCur.length <= bigPrv.length ? 'Fewer big moments' : 'More challenging moments logged',
+      title: emoTitle,
+      subtitle: emoSub,
       detail: `Challenging moments logged: ${bigCur.length} (last month ${bigPrv.length}).${breathing ? ` Deep breathing was chosen ${breathing} time${breathing === 1 ? '' : 's'}.` : ''} Fewer logs can also mean fewer observations — check the evidence count.`,
-      trend: trend(bigCur.length, bigPrv.length, true),
+      trend: emo,
+      count: bigCur.length,
+      prevCount: bigPrv.length,
       evidenceIds: bigCur.map((o) => o.id),
     },
     {
       id: 'independence',
-      title: indCur.length >= indPrv.length ? 'Growing independence' : 'Independence',
-      subtitle: indCur.length >= indPrv.length ? 'More confidence at home' : 'More support used at home',
+      title: indTitle,
+      subtitle: indSub,
       detail: `${indCur.length} of ${indAll.length} home routine or independence moments needed a visual cue or less (last month ${indPrv.length}).`,
-      trend: trend(indCur.length, indPrv.length),
+      trend: ind,
+      count: indCur.length,
+      prevCount: indPrv.length,
       evidenceIds: indCur.map((o) => o.id),
     },
   ];
@@ -303,9 +346,10 @@ export function progressReport(goals: GrowthGoal[], all: Observation[], range: R
   const milestones: ProgressReport['milestones'] = [];
   for (const g of active) {
     const obs = all.filter((o) => o.goalId === g.id);
-    const before = dimensionScores(summarize(obs.filter((o) => new Date(o.at) < start)));
-    const after = dimensionScores(summarize(obs));
-    for (const d of DIMENSIONS) if (after[d] > before[d] + 0.001) skillsGrowing += 1;
+    // One goal counts once, and only with enough valid evidence to call it growth.
+    const after = summarize(obs);
+    const before = journeyProgress(summarize(obs.filter((o) => new Date(o.at) < start)));
+    if (after.validCount >= 6 && journeyProgress(after) > before + 0.05) skillsGrowing += 1;
     const firsts: [string, (o: Observation) => boolean][] = [
       ['First independent try', (o) => usable(o) && o.outcome === 'independent'],
       ['First real-world use', (o) => usable(o) && !!o.realWorld && isSuccess(o)],

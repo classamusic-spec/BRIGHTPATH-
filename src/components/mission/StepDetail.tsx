@@ -6,6 +6,7 @@ import { Icon } from '@/components/icons/Icon';
 import { MyToolsButton } from '@/components/kid/MyTools';
 import { Landscape } from '@/components/scenery/Landscape';
 import { Appear, Button, FitBox, Header, IconTile, TwinkleStar, Txt } from '@/components/ui';
+import { ReadAloudButton } from '@/components/ui/ReadAloudButton';
 import type { MissionStep } from '@/content/types';
 import { speak } from '@/lib/speech';
 import { colors, GUTTER, radius, shadows } from '@/theme';
@@ -46,9 +47,12 @@ export function StepDetail({ step, next }: StepProps<Extract<MissionStep, { type
         )}
       </FitBox>
       <Appear style={[styles.card, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
-        <Txt v="title" style={{ fontSize: 30, lineHeight: 36 }}>
-          {step.title}
-        </Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Txt v="title" accessibilityRole="header" style={{ fontSize: 30, lineHeight: 36, flex: 1 }}>
+            {step.title}
+          </Txt>
+          <ReadAloudButton text={`${step.title}. ${step.body}`} />
+        </View>
         <Txt v="bodyLg" color={colors.text} style={{ fontSize: 22, lineHeight: 29, marginTop: 4 }}>
           {step.body}
         </Txt>

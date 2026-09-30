@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { withRouteLearner } from '@/components/coach/Kit';
 import { ChoiceChips, SectionTitle, TextField } from '@/components/coach/Form';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
 import { Icon } from '@/components/icons/Icon';
 import { Appear, Button, Callout, Card, Header, Screen, Sheet, Tap, Txt } from '@/components/ui';
-import type { NeedCategory, SupportPathPlan } from '@/engine/types';
+import type { Learner, NeedCategory, SupportPathPlan } from '@/engine/types';
 import { successHaptic } from '@/lib/feedback';
 import { useApp } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -56,11 +56,13 @@ function blankPlan(learnerId: string): SupportPathPlan {
  * 34 · Support Path Planner (Framework Part IX). Never claims certainty about
  * why behaviour happens; the preferred path must meet the same possible need.
  */
-export default function SupportPathPlanner() {
-  const learner = useRouteLearner();
+export default withRouteLearner(SupportPathPlanner);
+
+function SupportPathPlanner({ learner }: { learner: Learner }) {
   const saved = useApp((s) => s.plans.find((p) => p.learnerId === learner.id));
   const goals = useApp(useShallow((s) => s.goals.filter((g) => g.learnerId === learner.id)));
   const savePlan = useApp((s) => s.savePlan);
+  const updateGoal = useApp((s) => s.updateGoal);
   const [plan, setPlan] = useState<SupportPathPlan>(() => saved ?? blankPlan(learner.id));
   const [open, setOpen] = useState<number | null>(null);
   const goal = useMemo(() => goals.find((g) => g.id === plan.goalId), [goals, plan.goalId]);
@@ -94,7 +96,7 @@ export default function SupportPathPlanner() {
                   </Txt>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Txt v="heading" color="#1320C4" style={{ fontSize: 21, lineHeight: 26 }} numberOfLines={1}>
+                  <Txt v="heading" color={colors.heading} style={{ fontSize: 21, lineHeight: 26 }} numberOfLines={1}>
                     {s.title}
                   </Txt>
                   <Txt v="body" color={colors.textSoft} style={{ fontSize: 16, lineHeight: 21 }} numberOfLines={1}>
@@ -132,7 +134,11 @@ export default function SupportPathPlanner() {
             { key: 'yes', label: 'Safety risk' },
           ]}
           value={plan.highRisk ? 'yes' : 'no'}
-          onChange={(v) => update({ highRisk: v === 'yes' })}
+          onChange={(v) => {
+            update({ highRisk: v === 'yes' });
+            // A safety risk also flags the linked goal, which pauses automatic adaptation for human review.
+            if (v === 'yes' && goal && !goal.flags.highRisk) updateGoal(goal.id, { flags: { ...goal.flags, highRisk: true } });
+          }}
         />
         {plan.highRisk ? <Callout tone="blush" text="This plan may require qualified professional review." style={{ marginBottom: 12 }} /> : null}
         <Button title="Save step" disabled={!plan.pattern.description.trim()} onPress={() => completeStep(1)} />
@@ -149,7 +155,11 @@ export default function SupportPathPlanner() {
           onChange={(v) => update({ meetsSameNeed: v === 'yes' })}
         />
         <SectionTitle>Link to a Growth Goal</SectionTitle>
-        <ChoiceChips options={goals.map((g) => ({ key: g.id, label: g.title }))} value={plan.goalId ?? ''} onChange={(v) => update({ goalId: v as string })} />
+        <ChoiceChips options={goals.map((g) => ({ key: g.id, label: g.title }))} value={plan.goalId ?? ''} onChange={(v) => {
+            update({ goalId: v as string });
+            const g = goals.find((x) => x.id === v);
+            if (plan.highRisk && g && !g.flags.highRisk) updateGoal(g.id, { flags: { ...g.flags, highRisk: true } });
+          }} />
         <Button kind="soft" size="md" title="Create a new Growth Goal" onPress={() => { setOpen(null); router.push({ pathname: '/coach/goal/new', params: { learner: learner.id } }); }} style={{ marginBottom: 10 }} />
         <Button title="Save step" disabled={!plan.preferredPath.trim() || !plan.meetsSameNeed} onPress={() => completeStep(2)} />
       </Sheet>

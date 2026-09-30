@@ -22,7 +22,7 @@ export default function Goals() {
         <Card onPress={() => router.push({ pathname: '/coach/goal/[id]', params: { id: v.goal.id } })} style={{ padding: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <AreaIcon area={v.goal.skillArea} size={44} />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Txt v="caption" color={colors.textMuted}>
                 {l?.fullName ?? l?.displayName}
               </Txt>
@@ -33,7 +33,7 @@ export default function Goals() {
             <Txt v="label" color={colors.mintDeep}>{`${Math.round(v.progress * 100)}%`}</Txt>
           </View>
           <ProgressBar value={v.progress} height={8} style={{ marginTop: 10 }} />
-          <Txt v="caption" color={v.rec.kind === 'humanReview' ? '#C23A5C' : colors.textMuted} style={{ marginTop: 6 }}>
+          <Txt v="caption" color={v.rec.kind === 'humanReview' ? colors.alertText : colors.textMuted} style={{ marginTop: 6 }}>
             {v.goal.status === 'active' ? `Next: ${KIND_LABEL[v.rec.kind]}` : v.goal.status}
           </Txt>
         </Card>
@@ -43,11 +43,11 @@ export default function Goals() {
   return (
     <Screen header={<Header title="Goals" back={false} />} footer={<CoachNav active="goals" />}>
       <Button title="Create a Growth Goal" icon={<Icon name="plus" size={22} color="#FFFFFF" />} onPress={() => router.push('/coach/goal/new')} style={{ marginBottom: 14 }} />
-      <Txt v="subheading" style={{ marginBottom: 8 }}>{`In progress (${active.length})`}</Txt>
+      <Txt v="subheading" style={{ marginBottom: 8 }} accessibilityRole="header">{`In progress (${active.length})`}</Txt>
       <View style={{ gap: 10 }}>{active.map(card)}</View>
       {other.length ? (
         <>
-          <Txt v="subheading" style={{ marginTop: 16, marginBottom: 8 }}>
+          <Txt v="subheading" style={{ marginTop: 16, marginBottom: 8 }} accessibilityRole="header">
             Paused, complete or retired
           </Txt>
           <View style={{ gap: 10 }}>{other.map(card)}</View>

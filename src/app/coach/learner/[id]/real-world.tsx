@@ -1,14 +1,15 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, StyleSheet, View } from 'react-native';
 
+import { withRouteLearner } from '@/components/coach/Kit';
+import { EvidenceRow } from '@/components/coach/EvidenceRow';
 import { ChoiceChips, TextField } from '@/components/coach/Form';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { ParkScene } from '@/components/scenery/Scenes';
 import { Appear, Button, Card, Chip, Header, IconTile, Screen, SegmentedTabs, Sheet, Tap, Txt } from '@/components/ui';
-import { OUTCOME_LABELS, SUPPORT_LABELS } from '@/engine/evidence';
-import type { Outcome, SupportLevel } from '@/engine/types';
+import type { Learner, Outcome, SupportLevel } from '@/engine/types';
+import { announce } from '@/lib/announce';
 import { successHaptic } from '@/lib/feedback';
 import { useApp } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -32,6 +33,8 @@ const QUEST_OUTCOMES: { key: Outcome | 'none'; label: string; support: SupportLe
   { key: 'supported', label: 'Model', support: 5 },
   { key: 'supported', label: 'Brief words', support: 6 },
   { key: 'supported', label: 'Together', support: 7 },
+  { key: 'partial', label: 'Tried part of it', support: 5 },
+  { key: 'notDemonstrated', label: 'Not yet', support: 7 },
   { key: 'accessLimited', label: 'Access limited', support: 1 },
 ];
 
@@ -44,8 +47,9 @@ function when(iso: string) {
 }
 
 /** 33 · Real-World Observation — where in-app practice meets real life (§38). */
-export default function RealWorldObservation() {
-  const learner = useRouteLearner();
+export default withRouteLearner(RealWorldObservation);
+
+function RealWorldObservation({ learner }: { learner: Learner }) {
   const obs = useLearnerObservations(learner.id);
   const quests = useApp(useShallow((s) => s.quests.filter((q) => q.learnerId === learner.id && q.status === 'open')));
   const record = useApp((s) => s.recordObservation);
@@ -55,32 +59,36 @@ export default function RealWorldObservation() {
   const [tagSheet, setTagSheet] = useState(false);
   const [voice, setVoice] = useState(false);
   const [questOpen, setQuestOpen] = useState<string | null>(null);
-  const [questChoice, setQuestChoice] = useState(1);
+  // Index into QUEST_OUTCOMES, or null until the adult picks one.
+  const [questChoice, setQuestChoice] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const annotate = useApp((s) => s.annotateObservation);
   const realWorld = useMemo(() => obs.filter((o) => o.realWorld).sort((a, b) => (a.at < b.at ? 1 : -1)), [obs]);
   const latest = realWorld[0];
-  const [tags, setTags] = useState<string[]>(latest?.tags.filter((t) => TAG_META[t]) ?? ['Social Skills', 'Kindness', 'Independence']);
+  const tags = useMemo(() => (latest?.tags ?? []).filter((t) => TAG_META[t]), [latest]);
   const quest = quests.find((q) => q.id === questOpen);
 
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Notes and tags are added to the same moment; they never create a second observation.
   const saveNote = () => {
-    if (!latest) return;
-    record({
-      learnerId: learner.id,
-      goalId: latest.goalId,
-      skillArea: latest.skillArea,
-      source: latest.source,
-      at: new Date().toISOString(),
-      context: latest.context,
-      quality: 'valid',
-      outcome: latest.outcome,
-      supportLevel: latest.supportLevel,
-      valence: latest.valence,
-      title: latest.title,
-      note: note.trim(),
-      tags,
-      realWorld: true,
-    });
+    if (!latest || !note.trim()) return;
+    annotate(latest.id, { note: note.trim() });
     successHaptic();
     setNote('');
+    setToast('Note added');
+    announce('Note added');
+  };
+  const addTags = (next: string[]) => {
+    if (!latest) return;
+    const added = next.filter((t) => !latest.tags.includes(t));
+    if (!added.length) return;
+    annotate(latest.id, { tags: added });
+    announce(`Tag added: ${added.join(', ')}`);
   };
 
   return (
@@ -119,7 +127,7 @@ export default function RealWorldObservation() {
                     <Icon name="tree" size={40} />
                   </IconTile>
                   <View style={{ flex: 1 }}>
-                    <Txt v="heading" color="#1320C4" style={{ fontSize: 20, lineHeight: 25 }} numberOfLines={1}>
+                    <Txt v="heading" color={colors.heading} style={{ fontSize: 20, lineHeight: 25 }} numberOfLines={1}>
                       {latest.title ?? 'Real-world moment'}
                     </Txt>
                     <Txt v="body" color={colors.textSoft} style={{ fontSize: 15 }} numberOfLines={1}>
@@ -127,18 +135,20 @@ export default function RealWorldObservation() {
                     </Txt>
                   </View>
                   <View style={{ backgroundColor: latest.valence === 'challenging' ? colors.blushSoft : '#DDF6E6', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8 }}>
-                    <Txt v="label" color={latest.valence === 'challenging' ? '#C23A5C' : colors.mintDeep} style={{ fontSize: 13.5 }}>
+                    <Txt v="label" color={latest.valence === 'challenging' ? colors.alertText : colors.mintText} style={{ fontSize: 13.5 }}>
                       {latest.valence === 'challenging' ? 'Tricky Moment' : 'Positive Moment'}
                     </Txt>
                   </View>
                 </View>
                 <View style={{ height: 210, borderRadius: radius.lg, overflow: 'hidden', marginTop: 14 }}>
-                  <ParkScene style={{ flex: 1 }} />
+                  {latest.photos?.[0] ? <Image source={{ uri: latest.photos[0] }} style={{ flex: 1 }} resizeMode="cover" accessibilityLabel="Photo of this moment" /> : <ParkScene style={{ flex: 1 }} />}
                 </View>
-                <Txt v="heading" color="#1320C4" style={{ marginTop: 12, fontSize: 21, lineHeight: 28, fontFamily: 'Nunito_700Bold' }}>
-                  {latest.note}
-                </Txt>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                {latest.note ? (
+                  <Txt v="heading" color={colors.heading} style={{ marginTop: 12, fontSize: 21, lineHeight: 28, fontFamily: 'Nunito_700Bold' }}>
+                    {latest.note}
+                  </Txt>
+                ) : null}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: tags.length ? 12 : 0 }}>
                   {tags.map((t) => (
                     <Chip key={t} label={t} size="sm" tone={TAG_META[t]?.tone ?? 'blue'} icon={<Icon name={TAG_META[t]?.icon ?? 'star'} size={17} color={t === 'Social Skills' ? '#2F74E8' : undefined} />} />
                   ))}
@@ -146,6 +156,13 @@ export default function RealWorldObservation() {
                 <View style={{ marginTop: 12 }}>
                   <TextField value={note} onChangeText={setNote} placeholder="Add a note…" />
                   {note.trim() ? <Button size="md" title="Save note" onPress={saveNote} /> : null}
+                  {toast ? (
+                    <View style={{ alignSelf: 'center', backgroundColor: colors.mintSoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, marginTop: 8 }}>
+                      <Txt v="label" color={colors.mintText}>
+                        {toast}
+                      </Txt>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
                   {(
@@ -177,38 +194,24 @@ export default function RealWorldObservation() {
       {tab === 'history' && (
         <View style={{ gap: 10 }}>
           {realWorld.map((o) => (
-            <Card key={o.id} style={{ padding: 14 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Txt v="subheading" color={colors.ink}>
-                  {o.title ?? o.context.setting}
-                </Txt>
-                <Txt v="caption" color={colors.textMuted}>
-                  {when(o.at)}
-                </Txt>
-              </View>
-              {o.note ? (
-                <Txt v="body" color={colors.textSoft}>
-                  {o.note}
-                </Txt>
-              ) : null}
-              <Txt v="caption" color={colors.mintDeep}>{`${OUTCOME_LABELS[o.outcome]} · ${SUPPORT_LABELS[o.supportLevel]} · ${o.source}`}</Txt>
-            </Card>
+            <EvidenceRow key={o.id} obs={o} />
           ))}
         </View>
       )}
 
-      <Sheet visible={tagSheet} onClose={() => setTagSheet(false)} title="Tags">
-        <ChoiceChips multi options={Object.keys(TAG_META).map((t) => ({ key: t, label: t }))} value={tags} onChange={(v) => setTags(v as string[])} />
+      <Sheet visible={tagSheet} onClose={() => setTagSheet(false)} title="Tags" subtitle="Tags are added to this moment.">
+        <ChoiceChips multi options={Object.keys(TAG_META).map((t) => ({ key: t, label: t, disabled: tags.includes(t) }))} value={tags} onChange={(v) => addTags(v as string[])} />
       </Sheet>
       <Sheet visible={voice} onClose={() => setVoice(false)} title="Voice notes" subtitle="BrightPath doesn’t store voice recordings.">
         <Txt v="body">Use your keyboard’s microphone (dictation) in the note field to speak your note — only the text is saved.</Txt>
       </Sheet>
       <Sheet visible={!!quest} onClose={() => setQuestOpen(null)} title="How did the quest go?" subtitle={quest?.quest}>
-        <ChoiceChips options={QUEST_OUTCOMES.map((q, i) => ({ key: String(i), label: q.label }))} value={String(questChoice)} onChange={(v) => setQuestChoice(Number(v))} />
+        <ChoiceChips options={QUEST_OUTCOMES.map((q, i) => ({ key: String(i), label: q.label }))} value={questChoice == null ? [] : String(questChoice)} onChange={(v) => setQuestChoice(Number(v))} />
         <Button
-          title="Save"
+          title={questChoice == null ? 'Choose how it went' : 'Save'}
+          disabled={questChoice == null}
           onPress={() => {
-            if (!quest) return;
+            if (!quest || questChoice == null) return;
             const choice = QUEST_OUTCOMES[questChoice];
             if (choice.key === 'none') {
               resolveQuest(quest.id, 'none');
@@ -224,7 +227,7 @@ export default function RealWorldObservation() {
                 quality: choice.key === 'accessLimited' ? 'accessLimited' : 'valid',
                 outcome: choice.key,
                 supportLevel: choice.support,
-                valence: choice.key === 'accessLimited' ? 'neutral' : 'positive',
+                valence: choice.key === 'accessLimited' || choice.key === 'partial' ? 'neutral' : choice.key === 'notDemonstrated' ? 'challenging' : 'positive',
                 title: quest.title,
                 note: quest.quest,
                 realWorld: true,
@@ -233,6 +236,7 @@ export default function RealWorldObservation() {
             }
             successHaptic();
             setQuestOpen(null);
+            setQuestChoice(null);
           }}
         />
       </Sheet>

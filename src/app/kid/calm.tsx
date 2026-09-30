@@ -1,19 +1,21 @@
-import { useAudioPlayer, type AudioPlayer } from 'expo-audio';
-import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useAudioPlayer, useAudioPlayerStatus, type AudioPlayer } from 'expo-audio';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fox } from '@/components/characters/fox/Fox';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { Landscape } from '@/components/scenery/Landscape';
+import { MyToolsButton } from '@/components/kid/MyTools';
 import { Appear, Button, FitBox, Header, Sheet, Tap, Txt } from '@/components/ui';
 import { selectHaptic } from '@/lib/feedback';
 import { useMotionLevel } from '@/lib/motion';
 import { AMBIENT, playSound } from '@/lib/sound';
 import { GUIDE } from '@/content/cast';
-import { speak } from '@/lib/speech';
-import { useApp } from '@/store';
+import { announce } from '@/lib/announce';
+import { speak, stopSpeaking } from '@/lib/speech';
 import { colors, GUTTER, radius, shadows, tones } from '@/theme';
 
 type Module = 'breathe' | 'sounds' | 'feelings' | 'focus' | null;
@@ -27,47 +29,69 @@ const MODULES: { key: Exclude<Module, null>; label: string; icon: IconName }[] =
 
 /* ---------------------------------------------------------------- Breathe */
 
-function BreatheModule({ breath }: { breath: SharedValue<number> }) {
+type BreathPhase = 'in' | 'out';
+const PHASE_MS = 4000;
+const PHASE_LABEL: Record<BreathPhase, string> = { in: 'Breathe in…', out: 'Breathe out…' };
+
+function BreatheModule({ breath, onPhase }: { breath: SharedValue<number>; onPhase: (p: BreathPhase | undefined) => void }) {
   const level = useMotionLevel();
-  const [label, setLabel] = useState('Breathe in…');
+  const [phase, setPhase] = useState<BreathPhase>('in');
+  const [count, setCount] = useState(1);
+  const [paused, setPaused] = useState(false);
   useEffect(() => {
-    let alive = true;
-    const cycle = () => {
-      if (!alive) return;
-      setLabel('Breathe in…');
-      speak('Breathe in');
-      breath.value = level === 'off' ? 1 : withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.sin) });
-      setTimeout(() => {
-        if (!alive) return;
-        setLabel('Breathe out…');
-        speak('Breathe out');
-        breath.value = level === 'off' ? 0 : withTiming(0, { duration: 5000, easing: Easing.inOut(Easing.sin) });
-      }, 4000);
-      setTimeout(cycle, 9000);
+    if (paused) {
+      onPhase(undefined);
+      return;
+    }
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (fn: () => void, ms: number) => timers.push(setTimeout(fn, ms));
+    const run = (p: BreathPhase) => {
+      setPhase(p);
+      setCount(1);
+      onPhase(p);
+      speak(p === 'in' ? 'Breathe in' : 'Breathe out');
+      announce(PHASE_LABEL[p]);
+      const to = p === 'in' ? 1 : 0;
+      breath.value = level === 'off' ? to : withTiming(to, { duration: PHASE_MS, easing: Easing.inOut(Easing.sin) });
+      for (let i = 2; i <= 4; i++) later(() => setCount(i), ((i - 1) * PHASE_MS) / 4);
+      later(() => run(p === 'in' ? 'out' : 'in'), PHASE_MS);
     };
-    cycle();
+    run('in');
     return () => {
-      alive = false;
+      timers.forEach(clearTimeout);
       cancelAnimation(breath);
+      stopSpeaking();
+      onPhase(undefined);
     };
-  }, [breath, level]);
-  const bubble = useAnimatedStyle(() => ({ transform: [{ scale: 0.55 + breath.value * 0.45 }], opacity: 0.55 + breath.value * 0.35 }));
+  }, [breath, level, paused, onPhase]);
+  // Opacity stays fixed so the circle never fades behind the words.
+  const bubble = useAnimatedStyle(() => ({ transform: [{ scale: 0.6 + breath.value * 0.4 }] }));
   return (
     <View style={{ alignItems: 'center', paddingVertical: 8 }}>
       <View style={{ width: 220, height: 220, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={styles.guideRing} />
         <Animated.View style={[styles.bubble, bubble]} />
-        <Txt v="title" color="#FFFFFF" style={{ fontSize: 26 }}>
-          {label}
-        </Txt>
+        {paused ? null : (
+          <Txt v="number" color="#FFFFFF" style={{ fontSize: 40 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {String(count)}
+          </Txt>
+        )}
       </View>
-      <Txt v="body" center color={colors.textSoft} style={{ marginTop: 10 }}>
+      <Txt v="title" center color={colors.ink} style={{ fontSize: 26, marginTop: 14 }} accessibilityLiveRegion="polite">
+        {paused ? 'Paused' : PHASE_LABEL[phase]}
+      </Txt>
+      <Txt v="body" center color={colors.textSoft} style={{ marginTop: 6 }}>
         {`Follow the circle with ${GUIDE.name}. Stop any time.`}
       </Txt>
+      <Button kind="soft" size="md" title={paused ? 'Keep breathing' : 'Pause'} onPress={() => setPaused(!paused)} style={{ marginTop: 14, alignSelf: 'stretch' }} />
     </View>
   );
 }
 
 /* ----------------------------------------------------------- Quiet Sounds */
+
+type SoundId = keyof typeof AMBIENT;
+const SOUND_IDS = Object.keys(AMBIENT) as SoundId[];
 
 /** Ambient loops play quietly and keep going until the child stops them. */
 function loopSoftly(player: AudioPlayer) {
@@ -75,15 +99,12 @@ function loopSoftly(player: AudioPlayer) {
   player.volume = 0.7;
 }
 
-function SoundRow({ id }: { id: keyof typeof AMBIENT }) {
-  const player = useAudioPlayer(AMBIENT[id].source);
-  const [on, setOn] = useState(false);
-  useEffect(() => loopSoftly(player), [player]);
+function SoundRow({ id, player }: { id: SoundId; player: AudioPlayer }) {
+  const on = useAudioPlayerStatus(player).playing;
   const toggle = () => {
     selectHaptic();
     if (on) player.pause();
     else player.play();
-    setOn(!on);
   };
   return (
     <Tap onPress={toggle} style={[styles.soundRow, on ? { backgroundColor: colors.skySoft } : null]} accessibilityRole="switch" accessibilityState={{ checked: on }} accessibilityLabel={AMBIENT[id].label}>
@@ -97,6 +118,26 @@ function SoundRow({ id }: { id: keyof typeof AMBIENT }) {
         {on ? 'Playing' : 'Tap to play'}
       </Txt>
     </Tap>
+  );
+}
+
+/** Small "Now playing" chip on the Calm Space screen while a sound runs after its sheet closes. */
+function NowPlaying({ players, onPress }: { players: Record<SoundId, AudioPlayer>; onPress: () => void }) {
+  const rain = useAudioPlayerStatus(players.rain).playing;
+  const waves = useAudioPlayerStatus(players.waves).playing;
+  const forest = useAudioPlayerStatus(players.forest).playing;
+  const playing = SOUND_IDS.filter((k) => ({ rain, waves, forest })[k]);
+  if (!playing.length) return null;
+  const label = `Now playing: ${playing.map((k) => AMBIENT[k].label).join(', ')}`;
+  return (
+    <View style={{ width: '100%', alignItems: 'center' }}>
+      <Tap onPress={onPress} style={styles.nowPlaying} accessibilityLabel={`${label}. Open Quiet Sounds`} scale={0.96}>
+        <Icon name="moon" size={22} />
+        <Txt v="label" color={colors.text} numberOfLines={1} style={{ flexShrink: 1 }}>
+          {label}
+        </Txt>
+      </Tap>
+    </View>
   );
 }
 
@@ -158,24 +199,44 @@ function FeelingsModule() {
 
 /* ----------------------------------------------------------- Gentle Focus */
 
+/** Firefly spots as % of the sky panel, spread so no two overlap on any phone. */
+const FIREFLY_SPOTS: [number, number][] = [
+  [8, 12],
+  [30, 58],
+  [52, 20],
+  [70, 64],
+  [86, 30],
+  [20, 82],
+  [62, 86],
+];
+const FIREFLY = 26;
+
 function Firefly({ x, y, delay, onCatch }: { x: number; y: number; delay: number; onCatch: () => void }) {
   const level = useMotionLevel();
   const t = useSharedValue(0);
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
-    if (level === 'off') return;
+    if (level === 'off') {
+      t.value = 0;
+      return;
+    }
     t.value = withRepeat(withSequence(withTiming(1, { duration: 2600 + delay, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 2600 + delay, easing: Easing.inOut(Easing.sin) })), -1, false);
+    return () => cancelAnimation(t);
   }, [level, delay, t]);
-  const style = useAnimatedStyle(() => ({ opacity: hidden ? 0 : 0.6 + t.value * 0.4, transform: [{ translateY: -t.value * 18 }, { translateX: Math.sin(t.value * Math.PI) * 10 }, { scale: 0.9 + t.value * 0.2 }] }));
+  useEffect(() => {
+    if (!hidden) return;
+    const id = setTimeout(() => setHidden(false), 2200);
+    return () => clearTimeout(id);
+  }, [hidden]);
+  const style = useAnimatedStyle(() => ({ opacity: 0.6 + t.value * 0.4, transform: [{ translateY: -t.value * 18 }, { translateX: Math.sin(t.value * Math.PI) * 10 }, { scale: 0.9 + t.value * 0.2 }] }));
   if (hidden) return null;
   return (
-    <Animated.View style={[{ position: 'absolute', left: x, top: y }, style]}>
+    <Animated.View style={[{ position: 'absolute', left: x - FIREFLY / 2, top: y - FIREFLY / 2 }, style]}>
       <Tap
         onPress={() => {
           playSound('sparkle', 0.3);
           setHidden(true);
           onCatch();
-          setTimeout(() => setHidden(false), 2200);
         }}
         accessibilityLabel="Glowing light"
         hitSlop={10}
@@ -187,18 +248,17 @@ function Firefly({ x, y, delay, onCatch }: { x: number; y: number; delay: number
 }
 
 function FocusModule() {
-  const { width } = useWindowDimensions();
   const [caught, setCaught] = useState(0);
-  const spots = useMemo(() => Array.from({ length: 7 }, (_, i) => ({ x: 20 + ((i * 97) % (width - 90)), y: 20 + ((i * 53) % 150), d: i * 350 })), [width]);
+  const [sky, setSky] = useState<{ w: number; h: number } | null>(null);
   return (
     <View>
       <Txt v="body" color={colors.textSoft}>
         Watch the gentle lights float. Tap one if you like — there’s no rush and no score.
       </Txt>
-      <View style={styles.sky}>
-        {spots.map((s, i) => (
-          <Firefly key={i} x={s.x} y={s.y} delay={s.d} onCatch={() => setCaught((c) => c + 1)} />
-        ))}
+      <View style={styles.sky} onLayout={(e) => setSky({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+        {sky
+          ? FIREFLY_SPOTS.map(([px, py], i) => <Firefly key={i} x={(px / 100) * sky.w} y={Math.max((py / 100) * sky.h, FIREFLY)} delay={i * 350} onCatch={() => setCaught((c) => c + 1)} />)
+          : null}
       </View>
       <Txt v="caption" center color={colors.textMuted}>
         {caught ? `You noticed ${caught} light${caught === 1 ? '' : 's'}.` : 'Breathe slowly while you watch.'}
@@ -210,12 +270,27 @@ function FocusModule() {
 /** 10 · Calm Space — always available, never a consequence (Framework §49). */
 export default function CalmSpace() {
   const insets = useSafeAreaInsets();
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const focused = useIsFocused();
   const [open, setOpen] = useState<Module>(null);
+  const [phase, setPhase] = useState<BreathPhase | undefined>(undefined);
   const breath = useSharedValue(0);
-  const setQuiet = useApp((s) => s.setQuiet);
+  // Players live here, not in the sheet, so a sound keeps playing after the sheet closes.
+  const rain = useAudioPlayer(AMBIENT.rain.source);
+  const waves = useAudioPlayer(AMBIENT.waves.source);
+  const forest = useAudioPlayer(AMBIENT.forest.source);
+  const players = useMemo(() => ({ rain, waves, forest }), [rain, waves, forest]);
+  useEffect(() => {
+    SOUND_IDS.forEach((k) => loopSoftly(players[k]));
+  }, [players]);
+  useEffect(() => {
+    if (!focused) SOUND_IDS.forEach((k) => players[k].pause());
+  }, [focused, players]);
   useEffect(() => {
     speak('Calm Space. Take a moment. You’ve got this.');
   }, []);
+  const onPhase = useCallback((p: BreathPhase | undefined) => setPhase(p), []);
+  const breathing = open === 'breathe';
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Landscape
@@ -237,18 +312,18 @@ export default function CalmSpace() {
         }}
       />
       <View style={{ paddingTop: insets.top }}>
-        <Header title="Calm Space" subtitle="Take a moment. You’ve got this." />
+        <Header title="Calm Space" subtitle="Take a moment. You’ve got this." right={<MyToolsButton />} />
       </View>
       <FitBox style={styles.hero} aspect={240 / 214} max={290} min={110}>
-        {(size) => <Fox pose="meditate" size={size} breath={open === 'breathe' ? breath : undefined} />}
+        {(size) => <Fox pose="meditate" size={size} breath={breathing ? breath : undefined} breathPhase={breathing ? phase : undefined} />}
       </FitBox>
       <View style={[styles.grid, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+        <NowPlaying players={players} onPress={() => setOpen('sounds')} />
         {MODULES.map((m, i) => (
           <Appear key={m.key} delay={i * 80} style={styles.cell}>
             <Tap
               onPress={() => {
                 selectHaptic();
-                if (m.key === 'sounds') setQuiet(true);
                 setOpen(m.key);
               }}
               style={styles.tile}
@@ -261,19 +336,20 @@ export default function CalmSpace() {
             </Tap>
           </Appear>
         ))}
+        {from === 'mission' ? <Button title="I’m ready — back to my quest" onPress={() => router.back()} style={{ width: '100%' }} /> : null}
       </View>
 
-      <Sheet visible={open === 'breathe'} onClose={() => setOpen(null)} title="Breathe" subtitle="In through your nose, out like blowing a bubble.">
-        {open === 'breathe' ? <BreatheModule breath={breath} /> : null}
+      <Sheet visible={breathing} onClose={() => setOpen(null)} title="Breathe" subtitle="In through your nose, out like blowing a bubble.">
+        {breathing ? <BreatheModule breath={breath} onPhase={onPhase} /> : null}
       </Sheet>
       <Sheet visible={open === 'sounds'} onClose={() => setOpen(null)} title="Quiet Sounds" subtitle="Soft sounds to rest with. Tap again to stop.">
         <View style={{ gap: 10 }}>
-          {(Object.keys(AMBIENT) as (keyof typeof AMBIENT)[]).map((k) => (
-            <SoundRow key={k} id={k} />
+          {SOUND_IDS.map((k) => (
+            <SoundRow key={k} id={k} player={players[k]} />
           ))}
         </View>
       </Sheet>
-      <Sheet visible={open === 'feelings'} onClose={() => setOpen(null)} title="My Message" subtitle="Your words, your way.">
+      <Sheet visible={open === 'feelings'} onClose={() => setOpen(null)} title="My Feelings" subtitle="Your words, your way.">
         <FeelingsModule />
       </Sheet>
       <Sheet visible={open === 'focus'} onClose={() => setOpen(null)} title="Gentle Focus" subtitle="Look & find, nice and slow.">
@@ -288,7 +364,9 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, paddingHorizontal: GUTTER - 6, backgroundColor: 'transparent' },
   cell: { width: '48.5%' },
   tile: { backgroundColor: '#FFFFFF', borderRadius: radius.xl, alignItems: 'center', justifyContent: 'center', paddingVertical: 22, ...shadows.soft },
-  bubble: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#5DBE95' },
+  bubble: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#5DBE95', opacity: 0.9 },
+  guideRing: { position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 3, borderColor: '#BFE8D6' },
+  nowPlaying: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%', backgroundColor: '#FFFFFF', borderRadius: 999, paddingHorizontal: 14, height: 40, ...shadows.soft },
   soundRow: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#FFFFFF', borderRadius: radius.lg, padding: 14, ...shadows.soft },
   playBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   msgGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },

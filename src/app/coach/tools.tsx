@@ -8,7 +8,7 @@ import { selectLearner, useApp } from '@/store';
 import { colors } from '@/theme';
 import type { Tone } from '@/theme';
 
-const TOOLS: { icon: IconName; tone: Tone; title: string; sub: string; path: string }[] = [
+const TOOLS: { icon: IconName; tone: Tone; title: string; sub: string; path: string; params?: Record<string, string> }[] = [
   { icon: 'doc', tone: 'blue', title: 'Add an Observation', sub: 'What did you notice?', path: '/coach/learner/[id]/observe' },
   { icon: 'tree', tone: 'mint', title: 'Real-World Observation', sub: 'Moments and Real-World Quests', path: '/coach/learner/[id]/real-world' },
   { icon: 'sprout', tone: 'mint', title: 'Support Path Planner', sub: 'From current pattern to preferred path', path: '/coach/learner/[id]/support-path' },
@@ -17,7 +17,7 @@ const TOOLS: { icon: IconName; tone: Tone; title: string; sub: string; path: str
   { icon: 'mountain', tone: 'blue', title: 'Growth Map', sub: 'The path so far', path: '/coach/learner/[id]/growth-map' },
   { icon: 'barsGreen', tone: 'mint', title: 'Progress Report', sub: 'Skills, goals and milestones', path: '/coach/learner/[id]/report' },
   { icon: 'bulb', tone: 'butter', title: 'Coach Insights', sub: 'Observational, evidence-linked', path: '/coach/learner/[id]/insights' },
-  { icon: 'shield', tone: 'lavender', title: 'Access Profile', sub: 'Sensory, communication, motor', path: '/coach/learner/[id]/access' },
+  { icon: 'shield', tone: 'lavender', title: 'Access Profile', sub: 'Sensory, communication, motor', path: '/coach/learner/[id]/child', params: { section: 'access' } },
 ];
 
 /** Tools (coach tab) — one place for every learner tool. */
@@ -30,7 +30,7 @@ export default function Tools() {
         {TOOLS.map((t, i) => (
           <Appear key={t.title} delay={i * 35}>
             <Card>
-              <ListRow icon={t.icon} iconTone={t.tone} title={t.title} subtitle={t.sub} onPress={() => router.push({ pathname: t.path as never, params: { id: learner.id } } as never)} />
+              <ListRow icon={t.icon} iconTone={t.tone} title={t.title} subtitle={t.sub} onPress={() => router.push({ pathname: t.path as never, params: { id: learner.id, ...t.params } } as never)} />
             </Card>
           </Appear>
         ))}

@@ -11,7 +11,7 @@ import { recommend, type Recommendation } from '@/engine/decision';
 import { dimensionScores, journeyProgress, summarize, type DimensionScores, type EvidenceSummary } from '@/engine/evidence';
 import { isDue } from '@/engine/spaced';
 import { areaScore, dayCounts, isCelebration, keyInsights, patterns, progressReport, startOfDay, weeklySummary, type RangeKey } from '@/engine/summary';
-import type { GrowthGoal, JourneyMode, Observation, SkillArea } from '@/engine/types';
+import type { GrowthGoal, JourneyMode, Observation, RecommendationKind, SkillArea } from '@/engine/types';
 import { useClock } from '@/lib/clock';
 
 import { useApp } from './index';
@@ -115,7 +115,8 @@ export function useContextMatrix(learnerId: string, days = 60) {
 export function useWeekly(learnerId: string, name: string, anchor: Date) {
   const goals = useLearnerGoals(learnerId);
   const obs = useLearnerObservations(learnerId);
-  return useMemo(() => weeklySummary(name, goals, obs, anchor), [goals, obs, name, anchor]);
+  const now = useNow();
+  return useMemo(() => weeklySummary(name, goals, obs, anchor, now), [goals, obs, name, anchor, now]);
 }
 
 export function useInsights(learnerId: string, name: string) {
@@ -131,10 +132,53 @@ export function useProgressReport(learnerId: string, range: RangeKey) {
   return useMemo(() => progressReport(goals, obs, range, now), [goals, obs, range, now]);
 }
 
+export type ReviewKind = 'increaseSupport' | 'reassessAccess' | 'humanReview' | 'reviewGoal';
+const REVIEW_KINDS: RecommendationKind[] = ['increaseSupport', 'reassessAccess', 'humanReview', 'reviewGoal'];
+
+export interface GoalToReview {
+  learnerId: string;
+  goalId: string;
+  kind: ReviewKind;
+  reason: string;
+}
+
+/**
+ * The one "Need Support" rule: active goals whose recommendation asks the
+ * adult to review something (support, access, the goal itself). It describes
+ * the plan, never the child.
+ */
+export function selectGoalsToReview(goals: GrowthGoal[], obs: Observation[], learnerIds: string[], now: Date): GoalToReview[] {
+  const out: GoalToReview[] = [];
+  for (const g of goals) {
+    if (g.status !== 'active' || !learnerIds.includes(g.learnerId)) continue;
+    const r = recommend(g, obs.filter((o) => o.goalId === g.id), now);
+    if (REVIEW_KINDS.includes(r.kind)) out.push({ learnerId: g.learnerId, goalId: g.id, kind: r.kind as ReviewKind, reason: r.reasons[0] ?? r.title });
+  }
+  return out;
+}
+
+/** Active goals that simply need more observations before anything can be said. */
+export function selectGoalsGathering(goals: GrowthGoal[], obs: Observation[], learnerIds: string[], now: Date): { learnerId: string; goalId: string }[] {
+  return goals
+    .filter((g) => g.status === 'active' && learnerIds.includes(g.learnerId))
+    .filter((g) => recommend(g, obs.filter((o) => o.goalId === g.id), now).kind === 'gatherEvidence')
+    .map((g) => ({ learnerId: g.learnerId, goalId: g.id }));
+}
+
+export function useGoalsToReview(learnerIds: string[]): GoalToReview[] {
+  const goals = useApp((s) => s.goals);
+  const obs = useApp((s) => s.observations);
+  const now = useNow();
+  return useMemo(() => selectGoalsToReview(goals, obs, learnerIds, now), [goals, obs, learnerIds, now]);
+}
+
 export interface DashboardStats {
   learners: number;
   goalsInProgress: number;
+  /** Distinct learners with at least one goal to review (see selectGoalsToReview). */
   needSupport: string[];
+  review: GoalToReview[];
+  gathering: { learnerId: string; goalId: string }[];
   celebrations: number;
   days: { label: string; count: number }[];
 }
@@ -148,22 +192,13 @@ export function useDashboard(learnerIds: string[]): DashboardStats {
   return useMemo(() => {
     const mine = obs.filter((o) => learnerIds.includes(o.learnerId));
     const active = goals.filter((g) => g.status === 'active' && learnerIds.includes(g.learnerId));
-    const since30 = new Date(now.getTime() - 30 * DAY);
-    const needSupport = learnerIds.filter((id) => {
-      const lobs = mine.filter((o) => o.learnerId === id);
-      const flagged = active
-        .filter((g) => g.learnerId === id)
-        .some((g) => {
-          const r = recommend(g, lobs.filter((o) => o.goalId === g.id), now);
-          return ['increaseSupport', 'reassessAccess', 'humanReview', 'reviewGoal'].includes(r.kind);
-        });
-      const cells = contextMatrix(lobs, since30).flat();
-      return flagged || cells.some((c) => c.status === 'needs');
-    });
+    const review = selectGoalsToReview(goals, mine, learnerIds, now);
+    const needSupport = learnerIds.filter((id) => review.some((r) => r.learnerId === id));
+    const gathering = selectGoalsGathering(goals, mine, learnerIds, now);
     const start = startOfDay(new Date(now.getTime() - 6 * DAY));
     const counts = dayCounts(mine, start);
     const days = counts.map((count, i) => ({ label: DAY_LETTER[new Date(start.getTime() + i * DAY).getDay()], count }));
     const celebrations = mine.filter((o) => new Date(o.at) >= start && isCelebration(o)).length;
-    return { learners: learnerIds.length, goalsInProgress: active.length, needSupport, celebrations, days };
+    return { learners: learnerIds.length, goalsInProgress: active.length, needSupport, review, gathering, celebrations, days };
   }, [goals, obs, learnerIds, now]);
 }

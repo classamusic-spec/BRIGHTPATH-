@@ -3,14 +3,18 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Fox } from '@/components/characters/fox/Fox';
+import { ConfirmSheet } from '@/components/coach/ConfirmSheet';
+import { EvidenceRow } from '@/components/coach/EvidenceRow';
 import { ChoiceChips, TextField } from '@/components/coach/Form';
+import { CardHeader } from '@/components/coach/Kit';
 import { Icon } from '@/components/icons/Icon';
-import { Appear, Button, Card, Header, IconTile, ProgressBar, Screen, Sheet, StatusPill, Tap, Txt } from '@/components/ui';
+import { Appear, Button, Card, Header, IconTile, ProgressBar, Screen, Sheet, StatusPill, Tap, Toggle, Txt } from '@/components/ui';
 import { KIND_LABEL, MODE_COPY } from '@/engine/decision';
-import { CONFIDENCE_LABEL, EMERGENCE_LABELS, emergenceState, FUNCTIONAL_LABELS, functionalUseState, OUTCOME_LABELS, SUPPORT_LABELS } from '@/engine/evidence';
+import { CONFIDENCE_LABEL, EMERGENCE_LABELS, emergenceState, FUNCTIONAL_LABELS, functionalUseState, SUPPORT_LABELS } from '@/engine/evidence';
 import { INTERVALS } from '@/engine/spaced';
 import { AREA_LABEL } from '@/engine/summary';
-import type { GoalStatus, GrowthDimension } from '@/engine/types';
+import type { AdaptationRecord, GoalStatus, GrowthDimension, SupportLevel } from '@/engine/types';
+import { goBackOr } from '@/lib/nav';
 import { useApp } from '@/store';
 import { useGoalView } from '@/store/derived';
 import { colors, radius } from '@/theme';
@@ -37,6 +41,10 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+const isLevel = (v: unknown): v is SupportLevel => typeof v === 'number' && v >= 1 && v <= 7;
+const levelName = (v: AdaptationRecord['from']) => (isLevel(v) ? SUPPORT_LABELS[v] : v == null ? '—' : String(v));
+const dateOf = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
 /** 27 · Goal Details — with the explainable "why" behind the next step. */
 export default function GoalDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,10 +56,22 @@ export default function GoalDetails() {
   const [edit, setEdit] = useState(false);
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   if (!view) return <Redirect href="/coach/goals" />;
   const { goal, rec, summary, dims, progress } = view;
   const recent = [...view.observations].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 6);
   const areaCategory = goal.skillArea === 'communication' || goal.skillArea === 'social' ? 'Communication' : AREA_LABEL[goal.skillArea];
+  const changes = [...goal.adaptations].sort((a, b) => (a.at < b.at ? 1 : -1));
+  // Undo is offered on the newest support change that is still in effect.
+  const undoable = changes.find((a) => isLevel(a.from) && isLevel(a.to));
+  const canUndo = (a: AdaptationRecord) => a === undoable && a.to === goal.supportLevel && isLevel(a.from);
+  const undo = (a: AdaptationRecord) => {
+    if (!isLevel(a.from)) return;
+    updateGoal(goal.id, {
+      supportLevel: a.from,
+      adaptations: [...goal.adaptations, { at: new Date().toISOString(), kind: 'restore', from: a.to, to: a.from, reason: 'Adult restored the earlier level.', atValidCount: summary.validCount }],
+    });
+  };
 
   return (
     <Screen
@@ -72,7 +92,7 @@ export default function GoalDetails() {
             <IconTile tone="mint" size={76} radiusPx={20}>
               <Icon name="chat" size={54} />
             </IconTile>
-            <Txt v="heading" color="#1320C4" style={{ flex: 1, fontSize: 22, lineHeight: 28 }}>
+            <Txt v="heading" color={colors.heading} style={{ flex: 1, fontSize: 22, lineHeight: 28 }} accessibilityRole="header">
               {goal.title}
             </Txt>
             <Tap
@@ -110,7 +130,7 @@ export default function GoalDetails() {
             </Row>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
-            <Txt v="heading" color="#1320C4" style={{ fontSize: 21 }}>
+            <Txt v="heading" color={colors.heading} style={{ fontSize: 21 }}>
               Progress
             </Txt>
             <Txt v="heading" color={colors.mintDeep} style={{ fontSize: 21 }}>{`${Math.round(progress * 100)}%`}</Txt>
@@ -124,7 +144,7 @@ export default function GoalDetails() {
 
       <Appear delay={100} style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 10 }}>
         <View style={{ width: 120, height: 120, justifyContent: 'flex-end' }}>
-          <Fox pose="bust" size={120} wavePaw />
+          <Fox pose="bust" size={120} wavePaw decorative />
         </View>
         <View style={{ flex: 1, backgroundColor: '#E6EFFB', borderRadius: radius.lg, padding: 16, marginBottom: 6 }}>
           <Txt v="bodyLg" color={colors.text} style={{ fontSize: 19 }}>
@@ -139,7 +159,7 @@ export default function GoalDetails() {
           <Txt v="caption" color={colors.textMuted}>
             SUGGESTED NEXT STEP
           </Txt>
-          <Txt v="heading" color={rec.kind === 'humanReview' ? '#C23A5C' : '#1320C4'} style={{ marginTop: 2 }}>
+          <Txt v="heading" color={rec.kind === 'humanReview' ? colors.alertText : colors.heading} style={{ marginTop: 2 }}>
             {KIND_LABEL[rec.kind]}
           </Txt>
           {rec.kind !== 'humanReview' ? (
@@ -170,6 +190,9 @@ export default function GoalDetails() {
             <View style={styles.meta}>
               <Txt v="caption" color={colors.text}>{`Next review: ${INTERVALS[goal.spaced.index]?.label ?? '—'}`}</Txt>
             </View>
+            <View style={styles.meta}>
+              <Txt v="caption" color={colors.text}>{`Next practice: ${goal.spaced.nextDue ? new Date(goal.spaced.nextDue).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not scheduled yet'}`}</Txt>
+            </View>
           </View>
           {rec.checks.length ? (
             <View style={{ marginTop: 12, gap: 4 }}>
@@ -188,6 +211,44 @@ export default function GoalDetails() {
           {goal.currentPattern ? (
             <Button kind="soft" size="md" title="Open Support Path Planner" onPress={() => router.push({ pathname: '/coach/learner/[id]/support-path', params: { id: goal.learnerId } })} style={{ marginTop: 12 }} />
           ) : null}
+        </Card>
+      </Appear>
+
+      <Appear delay={180}>
+        <Card style={{ padding: 16, marginTop: 12 }}>
+          <CardHeader title="Support changes" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, paddingVertical: 6 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Txt v="label" color={colors.ink}>
+                Keep this level
+              </Txt>
+              <Txt v="bodySm" color={colors.textSoft}>{`Stay at “${SUPPORT_LABELS[goal.supportLevel]}”. BrightPath won’t change support automatically.`}</Txt>
+            </View>
+            <Toggle value={!!goal.supportLocked} onChange={(v) => updateGoal(goal.id, { supportLocked: v })} label="Keep this support level" />
+          </View>
+          {changes.length === 0 ? (
+            <Txt v="body" color={colors.textMuted} style={{ marginTop: 6 }}>
+              No automatic changes yet. Any change BrightPath makes will be listed here, with the reason.
+            </Txt>
+          ) : (
+            changes.map((a, i) => (
+              <View key={`${a.at}${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt v="label" color={colors.ink}>{`${dateOf(a.at)} · ${levelName(a.from)} → ${levelName(a.to)}`}</Txt>
+                  <Txt v="bodySm" color={colors.textSoft}>
+                    {a.temporary ? `Short help boost. ${a.reason}` : a.reason}
+                  </Txt>
+                </View>
+                {canUndo(a) ? (
+                  <Tap onPress={() => undo(a)} accessibilityLabel={`Undo: go back to ${levelName(a.from)}`} style={{ backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 }}>
+                    <Txt v="label" color={colors.primaryDeep}>
+                      Undo
+                    </Txt>
+                  </Tap>
+                ) : null}
+              </View>
+            ))
+          )}
         </Card>
       </Appear>
 
@@ -218,7 +279,7 @@ export default function GoalDetails() {
             <Txt v="subheading" color={colors.ink}>
               Recent evidence
             </Txt>
-            <Tap onPress={() => router.push({ pathname: '/coach/learner/[id]/observe', params: { id: goal.learnerId, goal: goal.id } })} accessibilityLabel="Add observation">
+            <Tap onPress={() => router.push({ pathname: '/coach/learner/[id]/observe', params: { id: goal.learnerId, goal: goal.id } })} accessibilityLabel="Add observation" style={{ paddingVertical: 10, paddingLeft: 12 }}>
               <Txt v="label" color={colors.primary}>
                 + Add
               </Txt>
@@ -229,19 +290,11 @@ export default function GoalDetails() {
               No observations yet.
             </Txt>
           ) : (
-            recent.map((o) => (
-              <View key={o.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
-                <View style={{ flex: 1 }}>
-                  <Txt v="label" color={colors.text}>
-                    {o.title ?? (o.source === 'app' ? 'In-app mission' : o.context.setting)}
-                  </Txt>
-                  <Txt v="caption" color={colors.textMuted}>{`${new Date(o.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${o.source} · ${SUPPORT_LABELS[o.supportLevel]}`}</Txt>
-                </View>
-                <Txt v="caption" color={o.quality === 'valid' ? colors.mintDeep : colors.textMuted}>
-                  {o.quality === 'valid' ? OUTCOME_LABELS[o.outcome] : 'Access limited'}
-                </Txt>
-              </View>
-            ))
+            <View style={{ gap: 8 }}>
+              {recent.map((o) => (
+                <EvidenceRow key={o.id} obs={o} style={{ backgroundColor: colors.cardSoft }} />
+              ))}
+            </View>
           )}
         </Card>
       </Appear>
@@ -252,9 +305,33 @@ export default function GoalDetails() {
           <Button kind="soft" title="Complete & maintain" onPress={() => { updateGoal(goal.id, { status: 'complete' }); setMenu(false); }} />
           <Button kind="soft" title="Retire — no longer useful" onPress={() => { updateGoal(goal.id, { status: 'retired', flags: { ...goal.flags, noLongerUseful: true } }); setMenu(false); }} />
           <Button kind="soft" title={goal.flags.adultsDisagree ? 'Team agrees again' : 'Team disagrees on success'} onPress={() => { updateGoal(goal.id, { flags: { ...goal.flags, adultsDisagree: !goal.flags.adultsDisagree } }); setMenu(false); }} />
-          <Button kind="danger" title="Delete goal" onPress={() => { deleteGoal(goal.id); setMenu(false); router.back(); }} />
+          <Button kind="danger" title="Delete goal" onPress={() => { setMenu(false); setConfirmDelete(true); }} />
         </View>
       </Sheet>
+
+      <ConfirmSheet
+        visible={confirmDelete}
+        title="Delete this goal?"
+        body={`Delete “${goal.title}”? Its ${view.observations.length} observation${view.observations.length === 1 ? '' : 's'} stay in ${learner?.displayName ?? 'the learner'}’s notes but lose their link to this goal. This can’t be undone. Retire keeps the goal and its history.`}
+        confirmTitle="Delete"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          deleteGoal(goal.id);
+          goBackOr('/coach/goals');
+        }}
+      >
+        <Button
+          kind="soft"
+          size="md"
+          title="Retire instead"
+          onPress={() => {
+            updateGoal(goal.id, { status: 'retired', flags: { ...goal.flags, noLongerUseful: true } });
+            setConfirmDelete(false);
+          }}
+          style={{ marginBottom: 4 }}
+        />
+      </ConfirmSheet>
 
       <Sheet visible={edit} onClose={() => setEdit(false)} title="Edit goal">
         <TextField label="Goal name" value={title} onChangeText={setTitle} />

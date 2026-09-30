@@ -2,11 +2,13 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { withRouteLearner } from '@/components/coach/Kit';
 import { Fox } from '@/components/characters/fox/Fox';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { Landscape } from '@/components/scenery/Landscape';
-import { Appear, Card, Header, Screen, SegmentedTabs, Sheet, Tap, Txt } from '@/components/ui';
+import { EvidenceRow } from '@/components/coach/EvidenceRow';
+import { Appear, Button, Card, Chip, Header, Screen, SegmentedTabs, Sheet, Tap, Txt } from '@/components/ui';
+import type { Learner } from '@/engine/types';
 import { KIND_LABEL } from '@/engine/decision';
 import { CONFIDENCE_LABEL } from '@/engine/evidence';
 import type { KeyInsight } from '@/engine/summary';
@@ -15,16 +17,25 @@ import { useGoalViews, useInsights } from '@/store/derived';
 import { colors, radius, shadows } from '@/theme';
 
 const ICONS: Record<KeyInsight['id'], IconName> = { communication: 'barsGreen', emotions: 'heart', independence: 'group' };
+// The chip says which way the count moved; its colour says whether that is good news for this area.
+const TONE: Record<KeyInsight['trend'], 'mint' | 'sky' | 'butter' | 'lavender'> = { up: 'mint', steady: 'sky', down: 'butter', unknown: 'lavender' };
+const moved = (k: KeyInsight) => (k.count > k.prevCount ? 'More' : k.count < k.prevCount ? 'Fewer' : 'Steady');
 
 /** 40 · Coach Insights — observational, evidence-linked, non-diagnostic (§52). */
-export default function CoachInsights() {
-  const learner = useRouteLearner();
+export default withRouteLearner(CoachInsights);
+
+function CoachInsights({ learner }: { learner: Learner }) {
   const [tab, setTab] = useState<'overview' | 'patterns' | 'recs'>('overview');
   const { key, patterns } = useInsights(learner.id, learner.displayName);
   const views = useGoalViews(learner.id);
   const observations = useApp((s) => s.observations);
   const [open, setOpen] = useState<KeyInsight | null>(null);
   const evidence = useMemo(() => (open ? observations.filter((o) => open.evidenceIds.includes(o.id)).slice(-8).reverse() : []), [open, observations]);
+  const validCount = useMemo(() => observations.filter((o) => o.learnerId === learner.id && o.quality === 'valid' && o.outcome !== 'accessLimited').length, [observations, learner.id]);
+  const enough = validCount >= 6;
+  // Only celebrate when the evidence says so: two areas up and none unknown.
+  const great = key.filter((k) => k.trend === 'up').length >= 2 && !key.some((k) => k.trend === 'unknown');
+  const go = (path: string, params: Record<string, string> = {}) => router.push({ pathname: path as never, params } as never);
 
   return (
     <Screen padded={false} header={<Header title="Coach Insights" />}>
@@ -58,46 +69,61 @@ export default function CoachInsights() {
               }}
             />
             <View style={{ position: 'absolute', left: 8, bottom: -10 }}>
-              <Fox pose="wave" size={220} />
+              <Fox pose="wave" size={220} decorative />
             </View>
             <Appear from="zoom" style={styles.bubble}>
-              <Txt v="heading" color="#1320C4" style={{ fontSize: 22 }}>
-                Great progress!
+              <Txt v="heading" color={colors.heading} style={{ fontSize: 22 }}>
+                {great ? 'Great progress!' : 'Here’s what we’re noticing'}
               </Txt>
-              <Txt v="body" color={colors.text} style={{ fontSize: 17, lineHeight: 23 }}>{`Here are insights to support ${learner.displayName}’s next steps.`}</Txt>
+              <Txt v="body" color={colors.text} style={{ fontSize: 17, lineHeight: 23 }}>{enough ? `Here are insights to support ${learner.displayName}’s next steps.` : `After a few more observations, patterns for ${learner.displayName} will start to show.`}</Txt>
             </Appear>
           </View>
           <View style={{ paddingHorizontal: 16, marginTop: -16 }}>
-            <Card style={{ padding: 16, borderRadius: radius.xl }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <Txt v="heading" color="#1320C4" style={{ fontSize: 23 }}>
-                  Key Insights
+            {enough ? (
+              <Card style={{ padding: 16, borderRadius: radius.xl }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Txt v="heading" color={colors.heading} style={{ fontSize: 23 }} accessibilityRole="header">
+                    Key Insights
+                  </Txt>
+                  <Txt v="body" color={colors.textSoft}>
+                    This Month
+                  </Txt>
+                </View>
+                {key.map((k, i) => (
+                  <Tap key={k.id} onPress={() => setOpen(k)} accessibilityLabel={`${k.title}. ${k.subtitle}. ${k.trend === 'unknown' ? 'Not enough evidence' : moved(k)}. ${k.count} this month, ${k.prevCount} last month.`} style={[styles.row, i > 0 ? { borderTopWidth: 1, borderTopColor: colors.lineSoft } : null]} scale={0.98}>
+                    <View style={{ width: 70, alignItems: 'center', opacity: k.trend === 'unknown' ? 0.5 : 1 }}>
+                      <Icon name={ICONS[k.id]} size={k.id === 'independence' ? 60 : 56} color={k.id === 'independence' ? '#2F74E8' : undefined} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Txt v="subheading" color={colors.heading} style={{ fontSize: 19.5, lineHeight: 25 }}>
+                        {k.title}
+                      </Txt>
+                      <Txt v="body" color={colors.textMuted} style={{ fontSize: 16.5 }}>
+                        {k.subtitle}
+                      </Txt>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                        {k.trend !== 'unknown' ? <Chip size="sm" tone={TONE[k.trend]} label={moved(k)} /> : null}
+                        <Txt v="caption" color={colors.textMuted} style={{ fontSize: 13 }}>{`${k.count} this month · ${k.prevCount} last month`}</Txt>
+                      </View>
+                    </View>
+                    <Icon name="chevronRight" size={24} color={colors.cobalt} />
+                  </Tap>
+                ))}
+              </Card>
+            ) : (
+              <Card style={{ padding: 18, borderRadius: radius.xl, gap: 10 }}>
+                <Txt v="heading" color={colors.heading} style={{ fontSize: 21 }} accessibilityRole="header">
+                  Not enough evidence yet
                 </Txt>
-                <Txt v="body" color={colors.textSoft}>
-                  This Month
-                </Txt>
-              </View>
-              {key.map((k, i) => (
-                <Tap key={k.id} onPress={() => setOpen(k)} accessibilityLabel={`${k.title}. ${k.subtitle}`} style={[styles.row, i > 0 ? { borderTopWidth: 1, borderTopColor: colors.lineSoft } : null]} scale={0.98}>
-                  <View style={{ width: 70, alignItems: 'center' }}>
-                    <Icon name={ICONS[k.id]} size={k.id === 'independence' ? 60 : 56} color={k.id === 'independence' ? '#2F74E8' : undefined} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt v="subheading" color="#1320C4" style={{ fontSize: 19.5, lineHeight: 25 }}>
-                      {k.title}
-                    </Txt>
-                    <Txt v="body" color={colors.textMuted} style={{ fontSize: 16.5 }}>
-                      {k.subtitle}
-                    </Txt>
-                  </View>
-                  <Icon name="chevronRight" size={24} color={colors.cobalt} />
-                </Tap>
-              ))}
-            </Card>
+                <Txt v="body" color={colors.textSoft}>{`Insights appear once there are at least 6 observations (${validCount} so far). Each one helps show what’s working for ${learner.displayName}.`}</Txt>
+                <Button title="Add an observation" size="md" onPress={() => go('/coach/learner/[id]/observe', { id: learner.id })} />
+                <Button title="Create a Growth Goal" kind="soft" size="md" onPress={() => go('/coach/goal/new', { learner: learner.id })} />
+              </Card>
+            )}
             <View style={styles.keep}>
               <Icon name="bulb" size={64} />
               <View style={{ flex: 1 }}>
-                <Txt v="subheading" color="#1320C4">
+                <Txt v="subheading" color={colors.heading}>
                   Keep going!
                 </Txt>
                 <Txt v="body" color={colors.text}>
@@ -136,7 +162,7 @@ export default function CoachInsights() {
                 <Txt v="caption" color={colors.textMuted}>
                   {v.goal.title.toUpperCase()}
                 </Txt>
-                <Txt v="heading" color={v.rec.kind === 'humanReview' ? '#C23A5C' : '#1320C4'} style={{ fontSize: 20 }}>
+                <Txt v="heading" color={v.rec.kind === 'humanReview' ? colors.alertText : colors.heading} style={{ fontSize: 20 }}>
                   {KIND_LABEL[v.rec.kind]}
                 </Txt>
                 <Txt v="body" color={colors.text} style={{ marginTop: 4 }}>
@@ -157,19 +183,7 @@ export default function CoachInsights() {
             Not enough evidence yet.
           </Txt>
         ) : (
-          evidence.map((o) => (
-            <View key={o.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12, marginBottom: 8 }}>
-              <Txt v="label">{o.title ?? (o.source === 'app' ? 'In-app mission' : o.context.setting)}</Txt>
-              {o.note ? (
-                <Txt v="bodySm" color={colors.textSoft}>
-                  {o.note}
-                </Txt>
-              ) : null}
-              <Txt v="caption" color={colors.textMuted}>
-                {new Date(o.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </Txt>
-            </View>
-          ))
+          evidence.map((o) => <EvidenceRow key={o.id} obs={o} style={{ marginBottom: 8 }} />)
         )}
       </Sheet>
     </Screen>

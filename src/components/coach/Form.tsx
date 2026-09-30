@@ -69,7 +69,8 @@ export function ChoiceChips<T extends string>({
   onChange,
   multi = false,
 }: {
-  options: { key: T; label: string }[];
+  /** `note` adds a small second line (e.g. "Already a goal"); `disabled` greys a chip out. */
+  options: { key: T; label: string; note?: string; disabled?: boolean }[];
   value: T | T[];
   onChange: (v: T | T[]) => void;
   multi?: boolean;
@@ -88,21 +89,29 @@ export function ChoiceChips<T extends string>({
               onChange(on ? arr.filter((x) => x !== o.key) : [...arr, o.key]);
             }}
             accessibilityRole={multi ? 'checkbox' : 'radio'}
-            accessibilityState={{ checked: on, selected: on }}
-            accessibilityLabel={o.label}
+            disabled={o.disabled}
+            accessibilityState={{ checked: on, selected: on, disabled: !!o.disabled }}
+            accessibilityLabel={o.note ? `${o.label}, ${o.note}` : o.label}
             style={{
               paddingHorizontal: 14,
-              paddingVertical: 9,
+              paddingVertical: 12,
+              minHeight: 44,
+              justifyContent: 'center',
               borderRadius: 999,
-              backgroundColor: on ? colors.primary : '#FFFFFF',
+              backgroundColor: on ? colors.primaryPressed : '#FFFFFF',
               borderWidth: 1.5,
-              borderColor: on ? colors.primary : colors.line,
+              borderColor: on ? colors.primaryPressed : colors.line,
             }}
             scale={0.95}
           >
             <Txt v="label" color={on ? '#FFFFFF' : colors.text} style={{ fontSize: 15 }}>
               {o.label}
             </Txt>
+            {o.note ? (
+              <Txt v="caption" color={on ? '#FFFFFF' : colors.textMuted} style={{ fontSize: 12.5 }}>
+                {o.note}
+              </Txt>
+            ) : null}
           </Tap>
         );
       })}
@@ -112,7 +121,7 @@ export function ChoiceChips<T extends string>({
 
 export function SectionTitle({ children }: { children: string }) {
   return (
-    <Txt v="subheading" color={colors.ink} style={{ marginTop: 14, marginBottom: 8, fontSize: 19 }}>
+    <Txt v="subheading" color={colors.ink} style={{ marginTop: 14, marginBottom: 8, fontSize: 19 }} accessibilityRole="header">
       {children}
     </Txt>
   );

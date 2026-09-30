@@ -20,13 +20,13 @@ export interface MatrixCell {
 export const CELL_LABEL: Record<CellStatus, string> = {
   strong: 'Doing well',
   growing: 'Growing',
-  some: 'Some support',
-  needs: 'Needs support',
+  some: 'With some support',
+  needs: 'More support helps here',
   none: 'Not enough evidence',
 };
 
 export function cellStatus(score: number, valid: number): CellStatus {
-  if (valid < 2) return 'none';
+  if (valid < 4) return 'none';
   if (score >= 0.8 && valid >= 4) return 'strong';
   if (score >= 0.62) return 'growing';
   if (score >= 0.38) return 'some';

@@ -20,19 +20,19 @@ export default function Settings() {
   const rows = [
     { icon: 'person' as const, title: 'Child Profile', onPress: go('/coach/learner/[id]/child') },
     { icon: 'gear' as const, title: 'Account Settings', onPress: () => setSheet('account') },
-    { icon: 'accessibility' as const, title: 'Accessibility', onPress: go('/coach/learner/[id]/child') },
-    { icon: 'sun' as const, title: 'Appearance', value: 'Light', onPress: () => setSheet('appearance') },
+    { icon: 'accessibility' as const, title: 'Accessibility', onPress: () => router.push({ pathname: '/coach/learner/[id]/child', params: { id: learner.id, section: 'access' } }) },
+    { icon: 'sun' as const, title: 'Appearance', value: 'Light', onPress: () => setSheet('appearance'), noChevron: true },
     { icon: 'globe' as const, title: 'Language', value: 'English', onPress: () => setSheet('language') },
     { icon: 'question' as const, title: 'Help & Support', onPress: () => setSheet('help') },
     { icon: 'info' as const, title: 'About BrightPath', onPress: () => router.push('/coach/about') },
   ];
   return (
-    <Screen header={<Header title="Settings / Accessibility" />} footer={<CoachNav active="more" />}>
+    <Screen header={<Header title="Settings / Accessibility" back={false} />} footer={<CoachNav active="more" />}>
       <View style={{ gap: 10 }}>
         {rows.map((r, i) => (
           <Appear key={r.title} delay={i * 40}>
             <Card>
-              <ListRow icon={r.icon} plainIcon tileSize={56} titleSize={19.5} title={r.title} value={r.value} onPress={r.onPress} style={{ paddingVertical: 12 }} />
+              <ListRow icon={r.icon} plainIcon tileSize={56} titleSize={19.5} title={r.title} value={r.value} onPress={r.onPress} right={'noChevron' in r ? <View /> : undefined} style={{ paddingVertical: 12 }} />
             </Card>
           </Appear>
         ))}

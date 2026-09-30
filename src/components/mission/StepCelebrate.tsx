@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
@@ -9,6 +9,7 @@ import { Icon } from '@/components/icons/Icon';
 import { MyToolsButton } from '@/components/kid/MyTools';
 import { Landscape } from '@/components/scenery/Landscape';
 import { Appear, Button, Callout, FitBox, Header, Screen, TwinkleStar, Txt } from '@/components/ui';
+import { ReadAloudButton } from '@/components/ui/ReadAloudButton';
 import type { MissionStep } from '@/content/types';
 import { successHaptic } from '@/lib/feedback';
 import { useCelebration, useMotionLevel } from '@/lib/motion';
@@ -27,7 +28,7 @@ const STAR_SPOTS = [
   { left: '12%', top: '76%', size: 36 },
   { left: '80%', top: '10%', size: 42 },
   { left: '84%', top: '36%', size: 30 },
-  { left: '82%', top: '68%', size: 54 },
+  { left: '88%', top: '56%', size: 54 },
 ];
 
 /** 08 · Success */
@@ -50,8 +51,8 @@ export function StepSuccess({ step, next }: StepProps<Extract<MissionStep, { typ
           horizon: 0.98,
           ground: 0.99,
           bushes: [
-            { x: 0.02, base: 0.7, s: 2.4, tone: 'light' },
-            { x: 0.98, base: 0.74, s: 2.2, tone: 'light' },
+            { x: 0.0, base: 0.6, s: 1.6, tone: 'light' },
+            { x: 1.0, base: 0.62, s: 1.5, tone: 'light' },
           ],
         }}
       />
@@ -69,9 +70,10 @@ export function StepSuccess({ step, next }: StepProps<Extract<MissionStep, { typ
         )}
       </FitBox>
       <Appear style={{ paddingHorizontal: GUTTER + 4, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
-        <Txt v="display" center style={{ fontSize: 46, lineHeight: 52 }}>
+        <Txt v="display" center accessibilityRole="header" style={{ fontSize: 46, lineHeight: 52 }}>
           {step.title}
         </Txt>
+        <ReadAloudButton text={`${step.title} ${step.message}`} style={styles.successRead} />
         <Txt v="bodyLg" center color={colors.text} style={{ fontSize: 24, lineHeight: 31, marginTop: 6, marginBottom: 20 }}>
           {step.message.replace(' and ', '\nand ')}
         </Txt>
@@ -100,8 +102,12 @@ export function StepFeedback({ step, next }: StepProps<Extract<MissionStep, { ty
       padded={false}
       header={<Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />}
       footer={<Button title={step.cta} onPress={next} />}
+      footerPadded
       contentStyle={{ flexGrow: 1 }}
     >
+      <View style={styles.feedbackRead}>
+        <ReadAloudButton text={`${step.title} ${step.subtitle}`} />
+      </View>
       <View style={styles.cheerStage}>
         <Landscape
           style={StyleSheet.absoluteFill}
@@ -153,9 +159,21 @@ function BigStar() {
   const s = useSharedValue(level === 'off' ? 1 : 0.2);
   const spin = useSharedValue(0);
   useEffect(() => {
-    if (level === 'off') return;
+    if (level === 'off') {
+      // Rest state: full size, no sway.
+      cancelAnimation(s);
+      cancelAnimation(spin);
+      s.value = 1;
+      spin.value = 0.5;
+      return;
+    }
     s.value = withSequence(withSpring(1.12, { damping: 6, stiffness: 140 }), withSpring(1, { damping: 10 }));
-    spin.value = withDelay(500, withRepeat(withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }), -1, true));
+    // A few gentle sways, then it settles (no endless loop).
+    spin.value = withDelay(500, withRepeat(withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }), level === 'gentle' ? 2 : 6, true));
+    return () => {
+      cancelAnimation(s);
+      cancelAnimation(spin);
+    };
   }, [level, s, spin]);
   const star = useAnimatedStyle(() => ({ transform: [{ scale: s.value * (1 + spin.value * 0.04) }, { rotate: `${(spin.value - 0.5) * 8}deg` }] }));
   const rays = useAnimatedStyle(() => ({ opacity: 0.6 + spin.value * 0.4, transform: [{ scale: 0.92 + spin.value * 0.1 }] }));
@@ -194,6 +212,7 @@ function BigStar() {
 export function StepComplete({ step, next, mission }: StepProps<Extract<MissionStep, { type: 'complete' }>>) {
   const finishMission = useApp((s) => s.finishMission);
   const runId = useMission((s) => s.runId);
+  const setAwarded = useMission((s) => s.setAwarded);
   // Stars are awarded once, when this run is marked complete.
   const completed = useApp((s) => !!runId && !!s.runs.find((r) => r.id === runId)?.completedAt);
   const earned = completed ? mission.stars : 0;
@@ -204,15 +223,18 @@ export function StepComplete({ step, next, mission }: StepProps<Extract<MissionS
     done.current = true;
     playSound('chime', 0.6);
     successHaptic();
-    finishMission(runId);
+    setAwarded(finishMission(runId));
     speak(`${step.title} ${step.message}`);
-  }, [finishMission, runId, step.title, step.message]);
+  }, [finishMission, setAwarded, runId, step.title, step.message]);
   return (
-    <Screen header={<Header title={step.title} right={<MyToolsButton />} />} footer={<Button title={step.cta} onPress={next} />}>
+    <Screen header={<Header title={step.title} right={<MyToolsButton />} />} footer={<Button title={step.cta} onPress={next} />} footerPadded>
       <BigStar />
-      <Txt v="title" center style={{ fontSize: 31, lineHeight: 37, marginTop: 4 }}>
-        {step.heading}
-      </Txt>
+      <View style={[styles.titleRow, { marginTop: 4 }]}>
+        <Txt v="title" center accessibilityRole="header" style={{ fontSize: 31, lineHeight: 37, flexShrink: 1 }}>
+          {step.heading}
+        </Txt>
+        <ReadAloudButton text={`${step.heading} ${step.message}`} style={styles.readAloud} />
+      </View>
       <Txt v="bodyLg" center color={colors.text} style={{ fontSize: 21, lineHeight: 28, marginTop: 6, maxWidth: 330, alignSelf: 'center' }}>
         {step.message}
       </Txt>
@@ -240,6 +262,10 @@ export function StepComplete({ step, next, mission }: StepProps<Extract<MissionS
 
 const styles = StyleSheet.create({
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  readAloud: { marginLeft: 4 },
+  successRead: { position: 'absolute', right: GUTTER, top: -58 },
+  feedbackRead: { position: 'absolute', right: GUTTER, top: 8, zIndex: 3 },
   tip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 16, paddingHorizontal: 12 },
   cheerStage: { flexGrow: 1, minHeight: 320, alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' },
   badgeRow: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER - 4, marginTop: -6 },

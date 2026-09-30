@@ -1,13 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { AREA_META, LearnerNav } from '@/components/coach/Kit';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
+import { AREA_META, withRouteLearner } from '@/components/coach/Kit';
 import { Icon } from '@/components/icons/Icon';
 import { GrowthMapScene, GrowthNode, SIGNPOSTS } from '@/components/scenery/GrowthMapScene';
 import { Card, Header, PillTabs, ProgressBar, Screen, Sheet, Tap, Txt } from '@/components/ui';
+import { CELL_LABEL, cellStatus } from '@/engine/context';
 import { RANGE_DAYS, type RangeKey } from '@/engine/summary';
-import type { SkillArea } from '@/engine/types';
+import type { Learner, SkillArea } from '@/engine/types';
 import { useAreaScores } from '@/store/derived';
 import { colors, radius, shadows } from '@/theme';
 
@@ -28,8 +28,9 @@ const SIGN_ICON: Record<keyof typeof SIGNPOSTS, ReactNode> = {
 const AREAS: SkillArea[] = ['communication', 'emotions', 'independence', 'routines'];
 
 /** 31 · Growth Map — the fox walks as far as the evidence shows, never further. */
-export default function GrowthMap() {
-  const learner = useRouteLearner();
+export default withRouteLearner(GrowthMap);
+
+function GrowthMap({ learner }: { learner: Learner }) {
   const [range, setRange] = useState<RangeKey>('1M');
   const scores = useAreaScores(learner.id, RANGE_DAYS[range], AREAS);
   const [open, setOpen] = useState<SkillArea | null>(null);
@@ -38,7 +39,7 @@ export default function GrowthMap() {
   const selected = scores.find((s) => s.area === open);
 
   return (
-    <Screen padded={false} scroll={false} edges={['top']} header={<Header title="Growth Map" />} footer={<LearnerNav id={learner.id} active="progress" />}>
+    <Screen padded={false} scroll={false} header={<Header title="Growth Map" />}>
       <View style={{ paddingHorizontal: 16 }}>
         <PillTabs
           items={(['1W', '1M', '3M', '1Y'] as RangeKey[]).map((k) => ({ key: k, label: k }))}
@@ -51,10 +52,11 @@ export default function GrowthMap() {
         {(Object.keys(SIGNPOSTS) as (keyof typeof SIGNPOSTS)[]).map((k) => {
           const p = SIGNPOSTS[k];
           const area = k as SkillArea;
+          const n = scores.find((x) => x.area === area)?.n ?? 0;
           return (
             <GrowthNode key={k} x={p.x} y={p.y} anchor="center">
               <View style={{ position: 'absolute', left: -200, width: 400, top: -34, height: 68, alignItems: 'center', justifyContent: 'center' }}>
-                <Tap onPress={() => setOpen(area)} accessibilityLabel={`${AREA_META[area].label} progress`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF', borderRadius: 999, paddingLeft: 8, paddingRight: 16, height: 58, ...shadows.raised }}>
+                <Tap onPress={() => setOpen(area)} accessibilityLabel={n ? `${AREA_META[area].label}: ${n} observation${n === 1 ? '' : 's'}` : `${AREA_META[area].label}: not enough evidence yet`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF', borderRadius: 999, paddingLeft: 8, paddingRight: 16, height: 58, opacity: n ? 1 : 0.6, ...shadows.raised }}>
                   {SIGN_ICON[k]}
                   <Txt v="subheading" color={colors.cobalt} style={{ fontSize: 17.5, lineHeight: 21 }}>
                     {LABEL[k]}
@@ -68,9 +70,14 @@ export default function GrowthMap() {
       <View style={{ paddingHorizontal: 12, marginTop: -40, marginBottom: 8 }}>
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderRadius: radius.xl }}>
           <Icon name="barsGreen" size={66} />
-          <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 20, lineHeight: 26 }}>
-            Small steps add up to big progress!
-          </Txt>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Txt v="bodyLg" color={colors.text} style={{ fontSize: 20, lineHeight: 26 }}>
+              Small steps add up to big progress!
+            </Txt>
+            <Txt v="caption" color={colors.textMuted} style={{ fontSize: 13, marginTop: 2 }}>
+              Tap a signpost to see the evidence.
+            </Txt>
+          </View>
         </Card>
       </View>
 
@@ -80,7 +87,10 @@ export default function GrowthMap() {
             {selected.n ? (
               <>
                 <ProgressBar value={selected.score} color={colors.mint} height={16} />
-                <Txt v="body" color={colors.text} style={{ marginTop: 10 }}>{`${selected.n} valid observations. Score reflects how accessible the skill was (support needed and outcome), not the child.`}</Txt>
+                <Txt v="label" color={colors.ink} style={{ marginTop: 10 }}>{`${CELL_LABEL[cellStatus(selected.score, selected.n)]} · ${selected.n} observation${selected.n === 1 ? '' : 's'}`}</Txt>
+                <Txt v="body" color={colors.textSoft} style={{ marginTop: 4 }}>
+                  The bar reflects how accessible the skill was (support needed and outcome), not the child.
+                </Txt>
               </>
             ) : (
               <Txt v="body">Not enough evidence in this range yet.</Txt>

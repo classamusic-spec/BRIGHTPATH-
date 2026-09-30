@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,15 +11,16 @@ import { MyToolsButton } from '@/components/kid/MyTools';
 import { Landscape } from '@/components/scenery/Landscape';
 import { Appear, Button, CheckBadge, FitBox, Header, Tap, Txt } from '@/components/ui';
 import type { MissionStep } from '@/content/types';
-import type { SupportLevel } from '@/engine/types';
+import type { Modality, SupportLevel } from '@/engine/types';
+import { announce } from '@/lib/announce';
 import { selectHaptic, successHaptic } from '@/lib/feedback';
 import { useMotionLevel } from '@/lib/motion';
 import { playSound } from '@/lib/sound';
-import { speak } from '@/lib/speech';
+import { speak, stopSpeaking } from '@/lib/speech';
 import { useMission } from '@/store/mission';
 import { colors, GUTTER, radius, shadows } from '@/theme';
 
-import { baseSupport, recordAppEvidence, type StepProps } from './context';
+import { baseSupport, recordAppEvidence, seededShuffle, type StepProps } from './context';
 import { Glow } from './Hints';
 
 type PracticeStep = Extract<MissionStep, { type: 'practice' }>;
@@ -94,7 +96,9 @@ function NumberDot({ n, active, done }: { n: number; active: boolean; done: bool
   );
 }
 
-/** 15 · Supported Try — guided deep breathing with the guide fox (breathes in sync). */
+const PHASE_WORDS = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out' } as const;
+
+/** 15 · Supported Try — guided deep breathing with the guide fox (breathes in sync). Modelled, so not graded. */
 function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
   const level = useMotionLevel();
   const breath = useSharedValue(0);
@@ -105,10 +109,31 @@ function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
   const [finished, setFinished] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const ring = useAnimatedStyle(() => ({ opacity: 0.18 + breath.value * 0.35, transform: [{ scale: 0.7 + breath.value * 0.45 }] }));
+  const pace = learner.access?.processing === 'extended' ? 1.5 : 1;
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const stop = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    cancelAnimation(breath);
+    breath.set(0);
+    setRunning(false);
+    setPhase(-1);
+    setCount(0);
+  }, [breath]);
+
+  // Leaving the screen (My Tools → Break, Back) stops the guide and its voice.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        stop();
+        stopSpeaking();
+      },
+      [stop],
+    ),
+  );
 
   const run = () => {
+    stop();
     setRunning(true);
     setFinished(false);
     setCycles(0);
@@ -116,32 +141,37 @@ function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
     const TOTAL = 2;
     for (let c = 0; c < TOTAL; c++) {
       PHASES.forEach((ph, pi) => {
+        const ms = ph.seconds * pace * 1000;
         timers.current.push(
           setTimeout(() => {
             setPhase(pi);
             setCycles(c);
-            speak(ph.key === 'in' ? 'Breathe in' : ph.key === 'hold' ? 'Hold' : 'Breathe out', { force: false });
+            speak(PHASE_WORDS[ph.key], { force: false });
+            announce(PHASE_WORDS[ph.key]);
             cancelAnimation(breath);
-            breath.value = level === 'off' ? ph.to : withTiming(ph.to, { duration: ph.seconds * 1000, easing: Easing.inOut(Easing.sin) });
+            breath.value = level === 'off' ? ph.to : withTiming(ph.to, { duration: ms, easing: Easing.inOut(Easing.sin) });
           }, t),
         );
-        for (let k = 0; k < ph.seconds; k++) timers.current.push(setTimeout(() => setCount(k + 1), t + k * 1000));
-        t += ph.seconds * 1000;
+        for (let k = 0; k < ph.seconds; k++) timers.current.push(setTimeout(() => setCount(k + 1), t + k * pace * 1000));
+        t += ms;
       });
     }
     timers.current.push(
       setTimeout(() => {
+        timers.current = [];
         setRunning(false);
         setPhase(-1);
         setFinished(true);
         playSound('chime', 0.45);
         successHaptic();
         speak('Nice breathing! You did it together.');
-        recordAppEvidence({ learner, mission, ev: step.evidence, success: true, support: 5, note: 'Guided deep breathing with a model (Try Together).' });
+        // Breathing along with a model is participation, not a graded opportunity.
+        recordAppEvidence({ learner, mission, ev: step.evidence, stepId: step.id, success: true, support: 5, quality: 'invalid', extraTags: ['participation'], note: 'Guided deep breathing with a model (Try Together).' });
       }, t + 200),
     );
   };
 
+  const current = running && phase >= 0 ? PHASES[phase].key : undefined;
   return (
     <Shell
       step={step}
@@ -150,14 +180,21 @@ function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
       fox={(size) => (
         <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
           <Animated.View pointerEvents="none" style={[styles.ring, ring, { width: size * 0.82, height: size * 0.82, borderRadius: size * 0.41, bottom: size * 0.14 }]} />
-          <Fox pose="breathe" size={size} breath={running ? breath : undefined} />
+          <Fox pose="breathe" size={size} breath={running ? breath : undefined} breathPhase={current} />
         </View>
       )}
       footer={
         finished ? (
           <Button title="Next" onPress={next} />
         ) : (
-          <Button title={running ? `${['Breathe in', 'Hold', 'Breathe out'][Math.max(0, phase)]}… ${count}` : step.cta} onPress={running ? undefined : run} />
+          <View style={{ gap: 8 }}>
+            {running ? (
+              <Button title={`Pause · ${PHASE_WORDS[current ?? 'in']} ${count}`} kind="soft" onPress={stop} />
+            ) : (
+              <Button title={step.cta} onPress={run} />
+            )}
+            <Button title="Skip for now" kind="ghost" size="md" onPress={next} />
+          </View>
         )
       }
     >
@@ -179,23 +216,38 @@ function Breathing({ mission, step, learner, next }: StepProps<PracticeStep>) {
   );
 }
 
-/** Help Hero practice — tap the Help signal (AAC-style) and a helper comes. */
+/** Help Hero practice — ask for help your way (Help card, words, a point or sign) and a helper comes. */
 function HelpSignal({ mission, step, learner, next }: StepProps<PracticeStep>) {
   const [stage, setStage] = useState(0);
   const base = useMemo(() => baseSupport(learner.id, step.evidence, learner.band), [learner.id, learner.band, step.evidence]);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     useMission.getState().startStep();
   }, []);
-  const press = () => {
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = null;
+        stopSpeaking();
+        // Coming back after leaving mid-way shows the finished state (the ask was already recorded).
+        setStage((st) => (st > 0 ? 3 : st));
+      },
+      [],
+    ),
+  );
+  const press = (modality: Modality) => {
     if (stage > 0) return;
     selectHaptic();
     playSound('sparkle', 0.5);
     setStage(1);
-    speak('Help, please! I’m here to help you!', { force: false });
-    setTimeout(() => {
+    // Asking for help is the skill being practised, so it is recorded at once and never counted as a Help request.
+    recordAppEvidence({ learner, mission, ev: step.evidence, stepId: step.id, success: true, support: base as SupportLevel, modality });
+    speak(modality === 'aac' ? 'Help, please! I’m here to help you!' : 'I’m here to help you!', { force: false });
+    timer.current = setTimeout(() => {
+      timer.current = null;
       setStage(3);
       successHaptic();
-      recordAppEvidence({ learner, mission, ev: step.evidence, success: true, support: base as SupportLevel, modality: 'aac', extraTools: ['help'] });
     }, 1400);
   };
   return (
@@ -211,49 +263,51 @@ function HelpSignal({ mission, step, learner, next }: StepProps<PracticeStep>) {
         ))}
       </View>
       {stage < 3 && (
-        <Glow on={stage === 0 && base >= 3}>
-          <Tap onPress={press} style={styles.helpBtn} accessibilityLabel="Help, please" scale={0.94}>
-            <Icon name="hand" size={48} />
-            <Txt v="title" color="#FFFFFF" style={{ fontSize: 28 }}>
-              Help, please!
-            </Txt>
-          </Tap>
-        </Glow>
+        <>
+          <Glow on={stage === 0 && base >= 3}>
+            <Tap onPress={() => press('aac')} style={styles.helpBtn} accessibilityLabel="Help, please" scale={0.94} disabled={stage > 0}>
+              <Icon name="hand" size={48} />
+              <Txt v="title" color="#FFFFFF" style={{ fontSize: 28 }}>
+                Help, please!
+              </Txt>
+            </Tap>
+          </Glow>
+          <View style={styles.altRow}>
+            <Button title="I said it" kind="soft" size="md" onPress={() => press('speech')} disabled={stage > 0} style={{ flex: 1 }} />
+            <Button title="I pointed or signed" kind="soft" size="md" onPress={() => press('gesture')} disabled={stage > 0} style={{ flex: 1.4 }} />
+          </View>
+        </>
       )}
     </Shell>
   );
 }
 
-/** Routine Road practice — tap steps in the order you like (more than one order is fine). */
+/** Routine Road practice — tap steps in the order that works for you (any complete order is fine). */
 function Sequence({ mission, step, learner, next }: StepProps<PracticeStep>) {
-  const shuffled = useMemo(() => [step.steps[2], step.steps[0], step.steps[3], step.steps[1]].filter(Boolean), [step.steps]);
+  const runId = useMission((s) => s.runId);
+  const shuffled = useMemo(() => seededShuffle(step.steps, `${runId ?? ''}:${step.id}`), [step.steps, step.id, runId]);
   const [placed, setPlaced] = useState<string[]>([]);
-  const [nudge, setNudge] = useState<string | null>(null);
-  const [misses, setMisses] = useState(0);
   const orders = step.orders ?? [step.steps];
   const base = useMemo(() => baseSupport(learner.id, step.evidence, learner.band), [learner.id, learner.band, step.evidence]);
-  const nextOptions = new Set(orders.filter((o) => placed.every((p, i) => o[i] === p)).map((o) => o[placed.length]));
+  // At model-level support, glow a suggested next card (only a suggestion: every card can be tapped).
+  const suggested = new Set(orders.filter((o) => placed.every((p, i) => o[i] === p)).map((o) => o[placed.length]));
   useEffect(() => {
     useMission.getState().startStep();
   }, []);
   const tap = (s: string) => {
     if (placed.includes(s)) return;
-    if (nextOptions.has(s)) {
-      selectHaptic();
-      playSound('tap', 0.4);
-      const nextPlaced = [...placed, s];
-      setPlaced(nextPlaced);
-      setNudge(null);
-      if (nextPlaced.length === step.steps.length) {
-        successHaptic();
-        playSound('chime', 0.45);
-        recordAppEvidence({ learner, mission, ev: step.evidence, success: true, support: (misses ? Math.max(base, 3) : base) as SupportLevel });
-      }
-    } else {
-      setMisses((m) => m + 1);
-      setNudge('Hmm, what comes next in your morning? Look for the glowing card.');
+    selectHaptic();
+    playSound('tap', 0.4);
+    const nextPlaced = [...placed, s];
+    setPlaced(nextPlaced);
+    if (nextPlaced.length === step.steps.length) {
+      successHaptic();
+      playSound('chime', 0.45);
+      const usual = orders.some((o) => o.every((x, i) => x === nextPlaced[i]));
+      recordAppEvidence({ learner, mission, ev: step.evidence, stepId: step.id, success: true, support: base as SupportLevel, note: `Order chosen: ${nextPlaced.join(' → ')}${usual ? '' : ' (their own order)'}` });
     }
   };
+  const undo = () => setPlaced((p) => (p.length === step.steps.length ? p : p.slice(0, -1)));
   const complete = placed.length === step.steps.length;
   return (
     <Shell step={step} learnerBuddy={buddyName(learner.buddy)} foxMax={220} fox={(size) => <Fox pose={complete ? 'cheer' : 'wave'} size={size} />} footer={complete ? <Button title="Next" onPress={next} /> : null}>
@@ -273,7 +327,7 @@ function Sequence({ mission, step, learner, next }: StepProps<PracticeStep>) {
         {shuffled.map((s) => {
           const used = placed.includes(s);
           return (
-            <Glow key={s} on={!used && (misses > 0 || base >= 5) && nextOptions.has(s)} radius={16}>
+            <Glow key={s} on={!used && base >= 5 && suggested.has(s)} radius={16}>
               <Tap onPress={() => tap(s)} disabled={used} style={[styles.chipCard, used ? { opacity: 0.35 } : null]} accessibilityLabel={s} scale={0.94}>
                 <Txt v="label" color={colors.ink}>
                   {s}
@@ -284,11 +338,7 @@ function Sequence({ mission, step, learner, next }: StepProps<PracticeStep>) {
           );
         })}
       </View>
-      {nudge ? (
-        <Txt v="body" color={colors.textSoft} center style={{ marginTop: 8 }}>
-          {nudge}
-        </Txt>
-      ) : null}
+      {placed.length > 0 && !complete ? <Button title="Undo last" kind="ghost" size="sm" onPress={undo} style={{ alignSelf: 'center', marginTop: 8 }} /> : null}
     </Shell>
   );
 }
@@ -313,6 +363,7 @@ const styles = StyleSheet.create({
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.lg, paddingVertical: 4, paddingHorizontal: 4 },
   dot: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.teal, alignItems: 'center', justifyContent: 'center' },
   ring: { position: 'absolute', bottom: 40, width: 230, height: 230, borderRadius: 115, backgroundColor: '#8FD3B8' },
+  altRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
   helpBtn: { marginTop: 14, height: 76, borderRadius: 38, backgroundColor: '#F28A5B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, ...shadows.button },
   slots: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   slot: { flex: 1, minHeight: 54, borderRadius: 14, borderWidth: 2, borderStyle: 'dashed', borderColor: '#C9D6EE', alignItems: 'center', justifyContent: 'center', padding: 4 },

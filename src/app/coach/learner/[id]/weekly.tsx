@@ -1,41 +1,61 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
-import { AreaIcon, AREA_META, HillStrip } from '@/components/coach/Kit';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
-import { Icon } from '@/components/icons/Icon';
+import { AREA_META, AreaIcon, CardHeader, HillStrip, ShareAction, withRouteLearner } from '@/components/coach/Kit';
+import { Icon, type IconName } from '@/components/icons/Icon';
 import { Appear, Card, Header, ProgressBar, Screen, Tap, Txt } from '@/components/ui';
+import type { Learner } from '@/engine/types';
 import { weekBounds } from '@/engine/summary';
 import { useWeekly } from '@/store/derived';
-import { colors, radius } from '@/theme';
+import { fitFontSize } from '@/lib/fitText';
+import { colors, fonts, radius } from '@/theme';
 
 const DAY = 24 * 3600 * 1000;
 const BAR: Record<string, string> = { communication: colors.mint, emotions: '#3F86F0', routines: '#B28CF4', independence: colors.butter };
 
-function fmt(d: Date, withYear = false) {
+function fmt(d: Date) {
+  const withYear = d.getFullYear() !== new Date().getFullYear();
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}) });
 }
+
+const BANNER: Record<'up' | 'down' | 'steady' | 'unknown', string> = {
+  up: 'Moving forward',
+  steady: 'Holding steady',
+  down: 'A week to look at supports',
+  unknown: 'Keep noticing',
+};
 
 /**
  * 29 · Weekly Summary — defaults to the last complete week; plain-language
  * summary, what changed, sources, what helped, next step and why (§37).
  */
-export default function WeeklySummary() {
-  const learner = useRouteLearner();
+export default withRouteLearner(WeeklySummary);
+
+function WeeklySummary({ learner }: { learner: Learner }) {
   const [offset, setOffset] = useState(-1);
   const anchor = useMemo(() => new Date(weekBounds(new Date()).start.getTime() + offset * 7 * DAY + DAY), [offset]);
   const w = useWeekly(learner.id, learner.displayName, anchor);
   const end = new Date(w.end.getTime() - DAY);
   const isCurrent = offset === 0;
+  const { width } = useWindowDimensions();
+  const stacked = width < 380;
+  const shareText = [
+    `${learner.displayName} — Weekly Summary, ${fmt(w.start)} to ${fmt(end)}`,
+    w.narrative.summary,
+    `What changed: ${w.narrative.changed}`,
+    `Where evidence came from: ${w.narrative.sources}`,
+    `What helped: ${w.narrative.helped}`,
+    `Suggested next step: ${w.narrative.next}`,
+  ].join('\n');
 
   return (
-    <Screen header={<Header title="Weekly Summary" />}>
+    <Screen header={<Header title="Weekly Summary" right={<ShareAction title="Weekly Summary" message={shareText} />} />}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Tap onPress={() => setOffset((o) => o - 1)} accessibilityLabel="Previous week" style={{ width: 54, height: 48, borderRadius: 16, backgroundColor: '#E3ECFA', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="chevronLeft" size={26} color={colors.cobalt} />
         </Tap>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Txt v="heading" color={colors.cobalt} style={{ fontSize: 20, fontFamily: 'Nunito_700Bold' }}>{`${fmt(w.start)} — ${fmt(end, true)}`}</Txt>
+          <Txt v="heading" color={colors.cobalt} style={{ fontSize: 20, fontFamily: 'Nunito_700Bold' }}>{`${fmt(w.start)} — ${fmt(end)}`}</Txt>
           {isCurrent ? (
             <Txt v="caption" color={colors.textMuted}>
               This week so far
@@ -69,17 +89,26 @@ export default function WeeklySummary() {
 
       <Appear delay={150}>
         <Card style={{ marginTop: 12, padding: 16 }}>
-          <Txt v="heading" color="#1320C4" style={{ fontSize: 23, marginBottom: 4 }}>
-            Focus Areas
-          </Txt>
+          <CardHeader title="Focus Areas" style={{ marginBottom: 4 }} />
           {w.focus.map((f, i) => (
-            <View key={f.area} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }} accessible accessibilityLabel={`${AREA_META[f.area].label}: ${f.n ? Math.round(f.score * 100) + '%' : 'not enough evidence'}`}>
+            <View key={f.area} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }} accessible accessibilityLabel={`${AREA_META[f.area].label}: ${f.n ? `${Math.round(f.score * 100)}%, ${f.n} observation${f.n === 1 ? '' : 's'}` : 'not enough evidence yet'}`}>
               <AreaIcon area={f.area} size={44} variant="badge" />
-              <Txt v="body" color={colors.text} style={{ width: 132, fontSize: 18 }} numberOfLines={1}>
-                {AREA_META[f.area].badge}
-              </Txt>
-              <View style={{ flex: 1 }}>
-                <ProgressBar value={f.n ? f.score : 0} color={BAR[f.area]} height={16} delay={i * 80} />
+              <View style={{ flex: 1, minWidth: 0, flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'center', gap: stacked ? 4 : 12 }}>
+                <Txt v="body" color={colors.text} style={{ fontSize: stacked ? 18 : fitFontSize(AREA_META[f.area].badge, fonts.semibold, 18, 13, 108), ...(stacked ? null : { width: 110 }) }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                  {AREA_META[f.area].badge}
+                </Txt>
+                <View style={{ flex: stacked ? undefined : 1 }}>
+                  {f.n ? (
+                    <>
+                      <ProgressBar value={f.score} color={BAR[f.area]} height={16} delay={i * 80} />
+                      <Txt v="caption" color={colors.textMuted} style={{ fontSize: 13, marginTop: 2 }}>{`${Math.round(f.score * 100)}% · ${f.n} observation${f.n === 1 ? '' : 's'}`}</Txt>
+                    </>
+                  ) : (
+                    <Txt v="bodySm" color={colors.textMuted}>
+                      Not enough evidence yet
+                    </Txt>
+                  )}
+                </View>
               </View>
             </View>
           ))}
@@ -89,9 +118,14 @@ export default function WeeklySummary() {
       <Appear delay={220} style={{ marginTop: 12, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: '#E2F5E6' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, paddingBottom: 4 }}>
           <Icon name="sprout" size={72} />
-          <Txt v="bodyLg" color={colors.text} style={{ flex: 1, fontSize: 20 }}>
-            {'Steady progress.\nBrighter tomorrows.'}
-          </Txt>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Txt v="subheading" color={colors.heading} style={{ fontSize: 20 }}>
+              {BANNER[w.changedTrend]}
+            </Txt>
+            <Txt v="body" color={colors.text} style={{ fontSize: 16 }}>
+              {w.narrative.changed}
+            </Txt>
+          </View>
         </View>
         <HillStrip height={28} />
       </Appear>
@@ -101,26 +135,31 @@ export default function WeeklySummary() {
         <Txt v="subheading" color={colors.ink}>
           In plain words
         </Txt>
-        {[
-          ['Summary', w.narrative.summary],
-          ['What changed', w.narrative.changed],
-          ['Where evidence came from', w.narrative.sources],
-          ['What helped', w.narrative.helped],
-          ['Suggested next step', w.narrative.next],
-        ].map(([k, v]) => (
-          <View key={k}>
-            <Txt v="caption" color={colors.textMuted}>
-              {k.toUpperCase()}
-            </Txt>
-            <Txt v="body" color={colors.text}>
-              {v}
-            </Txt>
+        {(
+          [
+            ['star', 'Summary', w.narrative.summary],
+            ['arrowUp', 'What changed', w.narrative.changed],
+            ['globe', 'Where evidence came from', w.narrative.sources],
+            ['sprout', 'What helped', w.narrative.helped],
+            ['target', 'Suggested next step', w.narrative.next],
+          ] as [IconName, string, string][]
+        ).map(([icon, k, v]) => (
+          <View key={k} style={{ flexDirection: 'row', gap: 12 }}>
+            <Icon name={icon} size={28} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Txt v="label" color={colors.heading} style={{ fontSize: 15 }} accessibilityRole="header">
+                {k}
+              </Txt>
+              <Txt v="body" color={colors.text}>
+                {v}
+              </Txt>
+            </View>
           </View>
         ))}
         {w.narrative.why.length ? (
           <View>
-            <Txt v="caption" color={colors.textMuted}>
-              WHY
+            <Txt v="label" color={colors.heading} style={{ fontSize: 15 }}>
+              Why
             </Txt>
             {w.narrative.why.map((r) => (
               <Txt key={r} v="body" color={colors.text}>{`• ${r}`}</Txt>

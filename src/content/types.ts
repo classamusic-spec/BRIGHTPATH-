@@ -18,11 +18,16 @@ export type Tone = 'mint' | 'sky' | 'butter' | 'lavender' | 'blush' | 'blue' | '
 
 export type SceneId = 'playroom' | 'bedroom' | 'shelf' | 'puzzle' | 'playground' | 'house' | 'kitchen';
 
+/** Story-character moods a scene can show. */
+export type StoryMood = 'frustrated' | 'hopeful' | 'happy';
+
 export type ArtId = 'fox' | 'aiden' | 'device' | 'toothbrush' | 'foxReading' | 'shirt' | 'bowl';
 
 export interface ChoiceOption {
   id: string;
   label: string;
+  /** 1–3 word label shown to Band A (Icon-First) learners; `label` stays the spoken/accessible text. */
+  short?: string;
   icon?: IconId;
   art?: ArtId;
   tone: Tone;
@@ -64,6 +69,8 @@ export type MissionStep =
       id: string;
       type: 'scenario';
       scene: SceneId;
+      /** How the story character feels in this round (the scene art follows). */
+      mood?: StoryMood;
       text: string;
       round: number;
       rounds: number;
@@ -160,6 +167,14 @@ export type ReviewStage =
   | 'approved'
   | 'retired';
 
+/** A completed human review stage (who, when, and what they noted). */
+export interface ReviewRecord {
+  stage: ReviewStage;
+  by: string;
+  at: string;
+  notes?: string;
+}
+
 /** Framework §41 — required mission metadata. */
 export interface MissionMeta {
   id: string;
@@ -185,6 +200,8 @@ export interface MissionMeta {
   safetyFlags: string[];
   accessibility: string[];
   reviewStatus: ReviewStage;
+  /** Human reviews signed off so far; stages past framework review need one record each. */
+  reviews?: ReviewRecord[];
   releaseStatus: 'draft' | 'pilot' | 'approved' | 'retired';
 }
 

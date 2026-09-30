@@ -3,14 +3,18 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { ChoiceChips, SectionTitle, TextField } from '@/components/coach/Form';
+import { CardHeader } from '@/components/coach/Kit';
 import { Icon, type IconName } from '@/components/icons/Icon';
-import { Appear, Button, Card, Header, IconTile, Screen, Tap, Txt } from '@/components/ui';
+import { Appear, Button, Card, Chip, Header, IconTile, Screen, Tap, Txt } from '@/components/ui';
 import { FOCUS_OPTIONS, templatesForFocus, type FocusOption, type GoalTemplate } from '@/content/curriculum';
 import { BANDS } from '@/engine/bands';
 import type { Modality, PresentationBand, Setting } from '@/engine/types';
 import { selectHaptic } from '@/lib/feedback';
+import { goBackOr } from '@/lib/nav';
 import { selectLearner, useApp } from '@/store';
 import { colors } from '@/theme';
+
+const WEEKS = ['4', '6', '8', '10', '12'];
 
 const FOCUS_ICON: Record<FocusOption['id'], IconName> = {
   communication: 'chatOrange',
@@ -40,6 +44,8 @@ export default function CreateGoal() {
   const [contexts, setContexts] = useState<Setting[]>([]);
   const [band, setBand] = useState<PresentationBand>(learner.band);
   const [weeks, setWeeks] = useState('10');
+  const goals = useApp((s) => s.goals);
+  const activeTemplates = useMemo(() => new Set(goals.filter((g) => g.learnerId === learner.id && g.status === 'active' && g.templateId).map((g) => g.templateId)), [goals, learner.id]);
   const [notes, setNotes] = useState('');
   const templates = useMemo(() => (focus ? templatesForFocus(focus) : []), [focus]);
 
@@ -54,7 +60,7 @@ export default function CreateGoal() {
   };
 
   const create = () => {
-    if (!tpl) return;
+    if (!tpl || !ready) return;
     const id = addGoal({
       learnerId: learner.id,
       title: title.trim() || tpl.title,
@@ -68,7 +74,7 @@ export default function CreateGoal() {
       priorityContexts: contexts,
       band,
       gameEngine: tpl.engine,
-      targetDate: new Date(Date.now() + Number(weeks || 10) * 7 * 24 * 3600 * 1000).toISOString(),
+      targetDate: new Date(Date.now() + weekCount * 7 * 24 * 3600 * 1000).toISOString(),
       status: 'active',
       notes,
       supportLevel: 5,
@@ -80,11 +86,12 @@ export default function CreateGoal() {
     router.replace({ pathname: '/coach/goal/[id]', params: { id } });
   };
 
-  const ready = action.trim() && success.trim() && modalities.length > 0;
+  const weekCount = parseInt(weeks, 10);
+  const ready = !!action.trim() && !!success.trim() && modalities.length > 0 && weekCount >= 1 && weekCount <= 52;
 
   return (
     <Screen
-      header={<Header title="Create a Growth Goal" onBack={step > 1 ? () => setStep((s) => (s - 1) as 1 | 2) : undefined} />}
+      header={<Header title="Create a Growth Goal" subtitle={`Step ${step} of 3 · for ${learner.displayName}`} onBack={step > 1 ? () => setStep((s) => (s - 1) as 1 | 2) : undefined} />}
       footer={
         step === 1 ? (
           <Button title="Next" disabled={!focus} onPress={() => setStep(2)} />
@@ -97,7 +104,7 @@ export default function CreateGoal() {
     >
       {step === 1 && (
         <>
-          <Txt v="heading" color="#1320C4" style={{ fontSize: 22, marginBottom: 12 }}>
+          <Txt v="heading" color={colors.heading} style={{ fontSize: 22, marginBottom: 12 }}>
             What would you like to focus on?
           </Txt>
           <View style={{ gap: 12 }}>
@@ -132,7 +139,7 @@ export default function CreateGoal() {
 
       {step === 2 && (
         <>
-          <Txt v="heading" color="#1320C4" style={{ fontSize: 23, marginBottom: 4 }}>
+          <Txt v="heading" color={colors.heading} style={{ fontSize: 23, marginBottom: 4 }}>
             Choose a starting point
           </Txt>
           <Txt v="body" color={colors.textSoft} style={{ marginBottom: 12 }}>
@@ -140,10 +147,13 @@ export default function CreateGoal() {
           </Txt>
           <View style={{ gap: 10 }}>
             {templates.map((t) => (
-              <Card key={t.id} onPress={() => pickTemplate(t)} selected={tpl?.id === t.id} style={{ padding: 14 }} accessibilityLabel={t.title}>
-                <Txt v="subheading" color={colors.ink}>
-                  {t.title}
-                </Txt>
+              <Card key={t.id} onPress={() => pickTemplate(t)} selected={tpl?.id === t.id} style={{ padding: 14 }} accessibilityLabel={activeTemplates.has(t.id) ? `${t.title}, already a goal` : t.title}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                  <Txt v="subheading" color={colors.ink} style={{ flex: 1 }}>
+                    {t.title}
+                  </Txt>
+                  {activeTemplates.has(t.id) ? <Chip size="sm" tone="mint" label="Already a goal" /> : null}
+                </View>
                 <Txt v="bodySm" color={colors.textSoft} style={{ marginTop: 2 }}>
                   {t.observableAction}
                 </Txt>
@@ -155,43 +165,52 @@ export default function CreateGoal() {
 
       {step === 3 && tpl && (
         <>
-          <TextField label="Goal name" value={title} onChangeText={setTitle} />
-          <TextField label="Observable action" value={action} onChangeText={setAction} multiline />
-          <TextField label="Functional context" value={context} onChangeText={setContext} />
-          <TextField label="What success means" value={success} onChangeText={setSuccess} multiline />
-          <SectionTitle>Accepted ways to show it</SectionTitle>
-          <ChoiceChips
-            multi
-            options={(
-              [
-                ['speech', 'Speech'],
-                ['aac', 'AAC'],
-                ['picture', 'Pictures'],
-                ['gesture', 'Gesture / sign'],
-                ['tap', 'Tap'],
-                ['typed', 'Typing'],
-                ['observed', 'Observed action'],
-              ] as [Modality, string][]
-            ).map(([key, label]) => ({ key, label }))}
-            value={modalities}
-            onChange={(v) => setModalities(v as Modality[])}
-          />
-          <SectionTitle>Priority places</SectionTitle>
-          <ChoiceChips
-            multi
-            options={[
-              { key: 'home', label: 'Home' },
-              { key: 'school', label: 'School' },
-              { key: 'social', label: 'Social' },
-              { key: 'outdoors', label: 'Outdoors' },
-            ]}
-            value={contexts}
-            onChange={(v) => setContexts(v as Setting[])}
-          />
-          <SectionTitle>Presentation band</SectionTitle>
-          <ChoiceChips options={(['A', 'B', 'C'] as PresentationBand[]).map((b) => ({ key: b, label: BANDS[b].name }))} value={band} onChange={(v) => setBand(v as PresentationBand)} />
-          <TextField label="Target (weeks)" value={weeks} onChangeText={setWeeks} keyboardType="number-pad" />
-          <TextField label="Notes (optional)" value={notes} onChangeText={setNotes} multiline />
+          <Card style={{ padding: 16, marginBottom: 12 }}>
+            <CardHeader title="What it looks like" style={{ marginBottom: 10 }} />
+            <TextField label="Goal name" value={title} onChangeText={setTitle} />
+            <TextField label="Observable action" value={action} onChangeText={setAction} multiline />
+            <TextField label="Functional context" value={context} onChangeText={setContext} />
+            <TextField label="What success means" value={success} onChangeText={setSuccess} multiline />
+          </Card>
+          <Card style={{ padding: 16, marginBottom: 12 }}>
+            <CardHeader title="Ways to show it" style={{ marginBottom: 10 }} />
+            <ChoiceChips
+              multi
+              options={(
+                [
+                  ['speech', 'Speech'],
+                  ['aac', 'AAC'],
+                  ['picture', 'Pictures'],
+                  ['gesture', 'Gesture / sign'],
+                  ['tap', 'Tap'],
+                  ['typed', 'Typing'],
+                  ['observed', 'Observed action'],
+                ] as [Modality, string][]
+              ).map(([key, label]) => ({ key, label }))}
+              value={modalities}
+              onChange={(v) => setModalities(v as Modality[])}
+            />
+          </Card>
+          <Card style={{ padding: 16, marginBottom: 12 }}>
+            <CardHeader title="Set-up" style={{ marginBottom: 4 }} />
+            <SectionTitle>Priority places</SectionTitle>
+            <ChoiceChips
+              multi
+              options={[
+                { key: 'home', label: 'Home' },
+                { key: 'school', label: 'School' },
+                { key: 'social', label: 'Social' },
+                { key: 'outdoors', label: 'Outdoors' },
+              ]}
+              value={contexts}
+              onChange={(v) => setContexts(v as Setting[])}
+            />
+            <SectionTitle>Presentation band</SectionTitle>
+            <ChoiceChips options={(['A', 'B', 'C'] as PresentationBand[]).map((b) => ({ key: b, label: BANDS[b].name }))} value={band} onChange={(v) => setBand(v as PresentationBand)} />
+            <SectionTitle>Target (weeks)</SectionTitle>
+            <ChoiceChips options={WEEKS.map((w) => ({ key: w, label: `${w} weeks` }))} value={weeks} onChange={(v) => setWeeks(v as string)} />
+            <TextField label="Notes (optional)" value={notes} onChangeText={setNotes} multiline />
+          </Card>
           <Card tone="mint" style={{ padding: 14 }}>
             <Txt v="bodySm" color={colors.text}>
               BrightPath starts with modelling and gathers 6–12 valid opportunities across at least two sessions before making a normal recommendation.
@@ -199,7 +218,7 @@ export default function CreateGoal() {
           </Card>
         </>
       )}
-      <Tap onPress={() => router.back()} accessibilityLabel="Cancel" style={{ alignSelf: 'center', padding: 14 }}>
+      <Tap onPress={() => goBackOr('/coach/goals')} accessibilityLabel="Cancel" style={{ alignSelf: 'center', padding: 14 }}>
         <Txt v="label" color={colors.textMuted}>
           Cancel
         </Txt>

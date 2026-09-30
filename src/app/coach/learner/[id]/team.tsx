@@ -1,12 +1,14 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { ConfirmSheet } from '@/components/coach/ConfirmSheet';
+import { withRouteLearner } from '@/components/coach/Kit';
 import { PersonAvatar, PEOPLE } from '@/components/characters/People';
 import { ChoiceChips, TextField } from '@/components/coach/Form';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
 import { Icon } from '@/components/icons/Icon';
 import { Appear, Button, Card, Header, Screen, Sheet, Tap, Txt } from '@/components/ui';
-import type { Permission, TeamMember, TeamRole } from '@/engine/types';
+import type { Learner, Permission, TeamMember, TeamRole } from '@/engine/types';
 import { useApp } from '@/store';
 import { colors, radius } from '@/theme';
 
@@ -14,14 +16,17 @@ const PERM_LABEL: Record<Permission, string> = { owner: 'Owner', edit: 'Can Edit
 const ROLE_TITLE: Record<TeamRole, string> = { parent: 'Parent / Caregiver', caregiver: 'Caregiver', teacher: 'Teacher', therapist: 'Therapist', coach: 'Coach' };
 
 /** 30 · Team & Sharing — one Owner controls permissions (Framework §30). */
-export default function Team() {
-  const learner = useRouteLearner();
+export default withRouteLearner(Team);
+
+function Team({ learner }: { learner: Learner }) {
   const allTeam = useApp((s) => s.team);
   const team = allTeam.filter((m) => m.learnerIds.includes(learner.id));
   const addTeamMember = useApp((s) => s.addTeamMember);
   const updateTeamMember = useApp((s) => s.updateTeamMember);
   const removeTeamMember = useApp((s) => s.removeTeamMember);
-  const [invite, setInvite] = useState(false);
+  const { invite: inviteParam } = useLocalSearchParams<{ invite?: string }>();
+  const [invite, setInvite] = useState(inviteParam === '1');
+  const [removing, setRemoving] = useState<TeamMember | null>(null);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [menu, setMenu] = useState(false);
   const [name, setName] = useState('');
@@ -51,7 +56,7 @@ export default function Team() {
             >
               <PersonAvatar look={PEOPLE[m.avatar]} size={76} />
               <View style={{ flex: 1 }}>
-                <Txt v="heading" color="#1320C4" style={{ fontSize: 21 }}>
+                <Txt v="heading" color={colors.heading} style={{ fontSize: 21 }}>
                   {m.isSelf ? 'You' : m.name}
                 </Txt>
                 <Txt v="body" color={colors.textMuted} style={{ fontSize: 17 }}>
@@ -132,14 +137,27 @@ export default function Team() {
               kind="danger"
               title="Remove from team"
               onPress={() => {
-                if (editing.learnerIds.length > 1) updateTeamMember(editing.id, { learnerIds: editing.learnerIds.filter((x) => x !== learner.id) });
-                else removeTeamMember(editing.id);
+                setRemoving(editing);
                 setEditing(null);
               }}
             />
           </View>
         )}
       </Sheet>
+
+      <ConfirmSheet
+        visible={!!removing}
+        title="Remove from team?"
+        body={removing ? `Remove ${removing.name} from ${learner.displayName}’s team? They won’t see new observations. Their earlier observations stay, with their source.` : ''}
+        confirmTitle="Remove"
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => {
+          if (!removing) return;
+          if (removing.learnerIds.length > 1) updateTeamMember(removing.id, { learnerIds: removing.learnerIds.filter((x) => x !== learner.id) });
+          else removeTeamMember(removing.id);
+          setRemoving(null);
+        }}
+      />
 
       <Sheet visible={menu} onClose={() => setMenu(false)} title="About sharing">
         <Txt v="body" color={colors.text}>

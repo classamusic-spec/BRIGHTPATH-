@@ -1,10 +1,10 @@
 import { StyleSheet, View } from 'react-native';
 
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
+import { withRouteLearner } from '@/components/coach/Kit';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { Appear, Card, CheckBadge, Header, Screen, Tap, Txt } from '@/components/ui';
 import { INTERESTS } from '@/content/interests';
-import type { InterestId } from '@/engine/types';
+import type { InterestId, Learner } from '@/engine/types';
 import { selectHaptic } from '@/lib/feedback';
 import { useApp } from '@/store';
 import { colors, radius, tones } from '@/theme';
@@ -26,8 +26,9 @@ const ICON: Record<InterestId, IconName> = {
 const FEATURED_TONE: Partial<Record<InterestId, 'mint' | 'butter' | 'white'>> = { animals: 'mint', art: 'butter' };
 
 /** 25 · Interests — used as mission wrappers (Framework §9). */
-export default function Interests() {
-  const learner = useRouteLearner();
+export default withRouteLearner(Interests);
+
+function Interests({ learner }: { learner: Learner }) {
   const updateLearner = useApp((s) => s.updateLearner);
   const toggle = (id: InterestId) => {
     selectHaptic();
@@ -62,7 +63,7 @@ export default function Interests() {
         })}
       </View>
       <Card style={{ marginTop: 14, padding: 16 }}>
-        <Txt v="heading" color="#1320C4" style={{ fontSize: 24, marginBottom: 6 }}>
+        <Txt v="heading" color={colors.heading} style={{ fontSize: 24, marginBottom: 6 }}>
           More Interests
         </Txt>
         {more.map((it, i) => {

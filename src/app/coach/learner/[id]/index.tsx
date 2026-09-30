@@ -2,19 +2,23 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { AreaIcon, AREA_META, HillStrip } from '@/components/coach/Kit';
-import { useRouteLearner } from '@/components/coach/useRouteLearner';
+import { EvidenceRow } from '@/components/coach/EvidenceRow';
+import { JourneyStepper } from '@/components/coach/JourneyStepper';
+import { AREA_META, AreaIcon, HillStrip, withRouteLearner } from '@/components/coach/Kit';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { BuddyPortrait } from '@/components/kid/Buddy';
 import { Appear, Card, Header, ListRow, ProgressBar, Screen, SegmentedTabs, Sheet, StatusFace, Tap, Txt } from '@/components/ui';
-import { KIND_LABEL, MODE_COPY } from '@/engine/decision';
-import { CONFIDENCE_LABEL, OUTCOME_LABELS } from '@/engine/evidence';
-import type { SkillArea } from '@/engine/types';
+import { CELL_LABEL } from '@/engine/context';
+import { KIND_LABEL } from '@/engine/decision';
+import { CONFIDENCE_LABEL } from '@/engine/evidence';
+import type { Learner, SkillArea } from '@/engine/types';
 import { useClock } from '@/lib/clock';
 import { useApp } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import { useAreaScores, useContextMatrix, useGoalViews, useLearnerObservations } from '@/store/derived';
+import { useAreaScores, useContextMatrix, useGoalsToReview, useGoalViews, useLearnerObservations } from '@/store/derived';
 import { colors, radius, tones } from '@/theme';
+
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const RECENT: SkillArea[] = ['communication', 'emotions', 'routines', 'independence'];
 const BAR_COLORS: Record<string, string> = { communication: colors.mint, emotions: '#3F86F0', routines: '#B28CF4', independence: colors.butter };
@@ -34,8 +38,9 @@ const MENU: { label: string; icon: IconName; path: string }[] = [
 ];
 
 /** 23 · Learner Overview */
-export default function LearnerOverview() {
-  const learner = useRouteLearner();
+export default withRouteLearner(LearnerOverview);
+
+function LearnerOverview({ learner }: { learner: Learner }) {
   const [tab, setTab] = useState<'overview' | 'progress' | 'goals' | 'notes'>('overview');
   const [menu, setMenu] = useState(false);
   const [detail, setDetail] = useState<'good' | 'support' | 'engaged' | null>(null);
@@ -52,7 +57,16 @@ export default function LearnerOverview() {
   const support = cells.filter((c) => c.status === 'needs' || c.status === 'some');
   const recentObs = useMemo(() => [...obs].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 25), [obs]);
   const weekAgo = now - 7 * 24 * 3600 * 1000;
-  const engagedCount = obs.filter((o) => new Date(o.at).getTime() > weekAgo && o.source === 'app').length + sessions.filter((r) => new Date(r.startedAt).getTime() > weekAgo).length;
+  // A mission counts once the child finished it or took at least one step in it; just opening one doesn't.
+  const engagedCount = sessions.filter((r) => {
+    const t = new Date(r.startedAt).getTime();
+    if (t <= weekAgo) return false;
+    return !!r.completedAt || obs.some((o) => o.source === 'app' && o.missionId === r.missionId && new Date(o.at).getTime() >= t);
+  }).length;
+  const engaged = engagedCount >= 3;
+  const learnerIds = useMemo(() => [learner.id], [learner.id]);
+  const review = useGoalsToReview(learnerIds);
+  const goodAreas = new Set(good.map((c) => c.area)).size;
 
   return (
     <Screen
@@ -74,7 +88,7 @@ export default function LearnerOverview() {
             <BuddyPortrait id={learner.buddy} size={124} />
           </View>
           <View style={{ flex: 1 }}>
-            <Txt v="title" color="#1320C4" style={{ fontSize: 30 }}>
+            <Txt v="title" color={colors.heading} style={{ fontSize: 30 }} accessibilityRole="header">
               {learner.fullName ?? learner.displayName}
             </Txt>
             <Txt v="bodyLg" color={colors.textSoft} style={{ fontSize: 19 }}>
@@ -98,15 +112,20 @@ export default function LearnerOverview() {
           <>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[
-                { key: 'good' as const, face: <StatusFace kind="good" size={68} />, label: 'Doing Well' },
-                { key: 'support' as const, face: <StatusFace kind="support" size={68} />, label: 'Needs\nSupport' },
-                { key: 'engaged' as const, face: <Icon name="heart" size={68} />, label: 'Very Engaged' },
+                { key: 'good' as const, face: <StatusFace kind="good" size={68} />, label: 'Doing Well', caption: `${goodAreas} area${goodAreas === 1 ? '' : 's'}` },
+                review.length
+                  ? { key: 'support' as const, face: <StatusFace kind="support" size={68} />, label: 'Needs\nSupport', caption: `${review.length} goal${review.length === 1 ? '' : 's'} to review` }
+                  : { key: 'support' as const, face: <Icon name="sprout" size={68} />, label: 'Keep noticing', caption: 'Nothing to review' },
+                { key: 'engaged' as const, face: <View style={{ opacity: engaged ? 1 : 0.5 }}><Icon name="heart" size={68} /></View>, label: engaged ? 'Very Engaged' : 'Engagement', caption: `${engagedCount} this week` },
               ].map((t, i) => (
-                <Appear key={t.key} delay={i * 80} style={{ flex: 1 }}>
-                  <Card onPress={() => setDetail(t.key)} style={{ alignItems: 'center', paddingVertical: 14, minHeight: 138, justifyContent: 'center' }} accessibilityLabel={t.label.replace('\n', ' ')}>
+                <Appear key={t.key} delay={i * 80} style={{ flex: 1, flexBasis: 0, minWidth: 0 }}>
+                  <Card onPress={() => setDetail(t.key)} style={{ flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 6, minHeight: 138, justifyContent: 'center' }} accessibilityLabel={`${t.label.replace('\n', ' ')}, ${t.caption}`}>
                     {t.face}
                     <Txt v="label" center color={colors.text} style={{ marginTop: 8, fontSize: 16 }}>
                       {t.label}
+                    </Txt>
+                    <Txt v="caption" center color={colors.textMuted} style={{ fontSize: 13 }} numberOfLines={2}>
+                      {t.caption}
                     </Txt>
                   </Card>
                 </Appear>
@@ -115,10 +134,10 @@ export default function LearnerOverview() {
             <Appear delay={150}>
               <Card style={{ marginTop: 14, padding: 16 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Txt v="heading" color="#1320C4" style={{ fontSize: 23 }}>
+                  <Txt v="heading" color={colors.heading} style={{ fontSize: 23 }} accessibilityRole="header">
                     Recent Progress
                   </Txt>
-                  <Tap onPress={() => go('/coach/learner/[id]/report')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} accessibilityLabel="View full progress report">
+                  <Tap onPress={() => go('/coach/learner/[id]/report')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 12, paddingLeft: 12, marginVertical: -12 }} accessibilityLabel="View full progress report">
                     <Txt v="label" color={colors.cobalt} style={{ fontSize: 17 }}>
                       View All
                     </Txt>
@@ -132,7 +151,13 @@ export default function LearnerOverview() {
                       <Txt v="body" color={colors.text} style={{ fontSize: 18.5, marginBottom: 6 }}>
                         {AREA_META[a.area].badge}
                       </Txt>
-                      <ProgressBar value={a.score} color={BAR_COLORS[a.area]} height={14} delay={i * 80} />
+                      {a.n ? (
+                        <ProgressBar value={a.score} color={BAR_COLORS[a.area]} height={14} delay={i * 80} />
+                      ) : (
+                        <Txt v="caption" color={colors.textMuted} style={{ fontSize: 13 }}>
+                          Not enough evidence yet
+                        </Txt>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -164,15 +189,7 @@ export default function LearnerOverview() {
                   </Txt>
                   <Txt v="label" color={colors.primaryDeep}>{`${Math.round(v.progress * 100)}%`}</Txt>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 6, marginVertical: 8 }}>
-                  {(['discover', 'practice', 'explore', 'remember'] as const).map((m) => (
-                    <View key={m} style={{ flex: 1, paddingVertical: 4, borderRadius: 999, backgroundColor: m === v.rec.mode ? colors.primary : '#EEF2F9', alignItems: 'center' }}>
-                      <Txt v="caption" color={m === v.rec.mode ? '#FFFFFF' : colors.textMuted}>
-                        {MODE_COPY[m].label}
-                      </Txt>
-                    </View>
-                  ))}
-                </View>
+                <JourneyStepper mode={v.rec.mode} />
                 <ProgressBar value={v.progress} color={colors.mint} />
                 <Txt v="caption" color={colors.textMuted} style={{ marginTop: 6 }}>{`Next: ${KIND_LABEL[v.rec.kind]} · Evidence ${CONFIDENCE_LABEL[v.rec.confidence].toLowerCase()}`}</Txt>
               </Card>
@@ -217,24 +234,7 @@ export default function LearnerOverview() {
               </Txt>
             </Card>
             {recentObs.map((o) => (
-              <Card key={o.id} style={{ padding: 14 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Txt v="label" color={colors.ink}>
-                    {o.title ?? (o.source === 'app' ? `In-app · ${o.context.activity ?? 'mission'}` : o.context.setting)}
-                  </Txt>
-                  <Txt v="caption" color={colors.textMuted}>
-                    {new Date(o.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </Txt>
-                </View>
-                {o.note ? (
-                  <Txt v="bodySm" color={colors.textSoft} style={{ marginTop: 2 }}>
-                    {o.note}
-                  </Txt>
-                ) : null}
-                <Txt v="caption" color={o.quality === 'valid' ? colors.mintDeep : colors.textMuted} style={{ marginTop: 4 }}>
-                  {o.quality === 'valid' ? OUTCOME_LABELS[o.outcome] : o.quality === 'accessLimited' ? 'Access limited — not counted as a miss' : 'Excluded'}
-                </Txt>
-              </Card>
+              <EvidenceRow key={o.id} obs={o} />
             ))}
           </View>
         )}
@@ -258,23 +258,46 @@ export default function LearnerOverview() {
         </View>
       </Sheet>
 
-      <Sheet visible={!!detail} onClose={() => setDetail(null)} title={detail === 'good' ? 'Doing well' : detail === 'support' ? 'Could use support' : 'Engagement'} subtitle="From the last 60 days of observations. Tap Context Matrix for the raw evidence.">
+      <Sheet visible={!!detail} onClose={() => setDetail(null)} title={detail === 'good' ? 'Doing well' : detail === 'support' ? (review.length ? 'Goals to review' : 'Keep noticing') : 'Engagement'} subtitle={detail === 'support' ? 'Suggestions are about the plan and supports — never the child.' : 'From the last 60 days of observations. Tap Context Matrix for the raw evidence.'}>
         {detail === 'engaged' ? (
-          <Txt v="bodyLg">{`${engagedCount} in-app moments or missions in the last 7 days. Engagement is about participation — never a score.`}</Txt>
+          <Txt v="bodyLg">{`${engagedCount} mission${engagedCount === 1 ? '' : 's'} started and worked on in the last 7 days. Engagement is about participation — never a score.`}</Txt>
         ) : (
           <View style={{ gap: 8 }}>
+            {detail === 'support' && review.length
+              ? review.map((r) => {
+                  const g = views.find((v) => v.goal.id === r.goalId)?.goal;
+                  return (
+                    <Tap key={r.goalId} onPress={() => { setDetail(null); router.push({ pathname: '/coach/goal/[id]', params: { id: r.goalId } }); }} accessibilityLabel={`${g?.title ?? 'Goal'}: ${KIND_LABEL[r.kind]}`} style={{ backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12 }}>
+                      <Txt v="label" color={colors.ink}>
+                        {g?.title ?? 'Goal'}
+                      </Txt>
+                      <Txt v="caption" color={r.kind === 'humanReview' ? colors.alertText : colors.primaryDeep}>
+                        {KIND_LABEL[r.kind]}
+                      </Txt>
+                      <Txt v="bodySm" color={colors.textSoft}>
+                        {r.reason}
+                      </Txt>
+                    </Tap>
+                  );
+                })
+              : null}
             {(detail === 'good' ? good : support).length === 0 ? (
-              <Txt v="body">Not enough evidence yet.</Txt>
+              detail === 'support' && review.length ? null : <Txt v="body">Not enough evidence yet.</Txt>
             ) : (
               (detail === 'good' ? good : support).map((c) => (
                 <View key={`${c.area}${c.setting}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12 }}>
                   <AreaIcon area={c.area} size={34} />
-                  <Txt v="body" style={{ flex: 1 }}>{`${AREA_META[c.area].label} · ${c.setting}`}</Txt>
-                  <Txt v="caption" color={colors.textMuted}>{`${c.valid} obs`}</Txt>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Txt v="body">{`${AREA_META[c.area].label} · ${cap(c.setting)}`}</Txt>
+                    <Txt v="caption" color={colors.textMuted}>
+                      {CELL_LABEL[c.status]}
+                    </Txt>
+                  </View>
+                  <Txt v="caption" color={colors.textMuted}>{`${c.valid} observation${c.valid === 1 ? '' : 's'}`}</Txt>
                 </View>
               ))
             )}
-            <Tap onPress={() => { setDetail(null); go('/coach/learner/[id]/context'); }} style={{ padding: 10, alignSelf: 'center' }} accessibilityLabel="Open Context Matrix">
+            <Tap onPress={() => { setDetail(null); go('/coach/learner/[id]/context'); }} style={{ padding: 12, alignSelf: 'center' }} accessibilityLabel="Open Context Matrix">
               <Txt v="label" color={colors.primary}>
                 Open Context Matrix
               </Txt>

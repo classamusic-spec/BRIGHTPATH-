@@ -43,7 +43,7 @@ function Art({ art }: { art: ArtId }) {
     case 'toothbrush':
       return <Toothbrushes />;
     case 'foxReading':
-      return <Fox pose="read" size={152} />;
+      return <Fox pose="read" size={160} decorative />;
     case 'shirt':
       return <Icon name="shirt" size={112} />;
     case 'bowl':
@@ -65,7 +65,7 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
   const arrowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: arrow.value * 6 }] }));
 
   return (
-    <Screen header={<Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />} contentStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+    <Screen header={<Header title={step.title} subtitle={step.subtitle} right={<MyToolsButton />} />} footer={<Button title={step.cta} onPress={next} />} contentStyle={{ paddingTop: 12 }}>
       <View style={styles.row}>
         <Appear style={[styles.col, { backgroundColor: '#FDF1D8' }]}>
           <Txt v="heading" center color={colors.ink} style={{ fontSize: 24, marginBottom: 10 }}>
@@ -88,7 +88,12 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
             <Txt v="bodyLg" center color={colors.ink} style={{ fontSize: 22 }}>
               {step.first.line2}
             </Txt>
-            {firstDone ? <CheckBadge size={36} style={{ position: 'absolute', top: 8, right: 8 }} /> : null}
+            <Txt v="caption" center color={colors.textSoft} style={{ marginTop: 8, fontSize: 14 }}>
+              {firstDone ? 'Done!' : 'Tap when done'}
+            </Txt>
+            <View style={styles.doneSpot} pointerEvents="none">
+              {firstDone ? <CheckBadge size={30} /> : <View style={styles.doneRing} />}
+            </View>
           </Tap>
         </Appear>
         <Animated.View style={[styles.arrow, arrowStyle]}>
@@ -114,7 +119,6 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
       <Appear delay={300}>
         <Callout tone="sky" art={<Fox pose="head" size={92} interactive={false} />} text={step.tip} style={{ marginTop: 18, paddingVertical: 16 }} />
       </Appear>
-      <Button title={step.cta} onPress={next} style={{ marginTop: 18 }} />
     </Screen>
   );
 }
@@ -122,6 +126,8 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
   col: { flex: 1, borderRadius: radius.xl, padding: 10, paddingTop: 14 },
-  inner: { backgroundColor: '#FFFFFF', borderRadius: radius.lg, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 6, minHeight: 286, justifyContent: 'center', borderWidth: 2.5, borderColor: 'transparent' },
+  inner: { backgroundColor: '#FFFFFF', borderRadius: radius.lg, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 6, minHeight: 286, justifyContent: 'center', borderWidth: 2.5, borderColor: 'transparent', overflow: 'hidden' },
+  doneSpot: { position: 'absolute', top: 8, right: 8, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  doneRing: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: colors.textFaint, backgroundColor: '#FFFFFF' },
   arrow: { width: 30, alignItems: 'center', marginHorizontal: -3, zIndex: 2 },
 });

@@ -15,5 +15,5 @@ export const QUESTS: Quest[] = [
   { id: 'emotions', title: 'Emotions', sub: 'Understand & manage', icon: 'chat', tone: 'mint', missionId: 'be-kind-home' },
   { id: 'friendships', title: 'Friendships', sub: 'Be kind & include others', icon: 'people', tone: 'blue', missionId: 'pip-tower' },
   { id: 'confidence', title: 'Confidence', sub: 'Try new things', icon: 'star', tone: 'butter', missionId: 'flexi-fix' },
-  { id: 'independence', title: 'Independence', sub: 'Do more on my own', icon: 'mountain', tone: 'white', missionId: 'morning-road' },
+  { id: 'independence', title: 'Independence', sub: 'Do more on my own', icon: 'mountain', tone: 'sky', missionId: 'morning-road' },
 ];

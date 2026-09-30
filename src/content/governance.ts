@@ -24,7 +24,31 @@ export const BANNED_WORDS = [
   'obey',
   'eye contact',
   'naughty',
+  'tantrum',
+  'meltdown',
+  'lazy',
+  'low-functioning',
+  'high-functioning',
 ];
+
+/** Word stems caught in every form (failure, failing, wrongly…) and spacing variants of labels. */
+export const BANNED_PATTERNS: { re: RegExp; label: string }[] = [
+  { re: /\bfail\w*/i, label: 'fail…' },
+  { re: /\bwrong\w*/i, label: 'wrong…' },
+  { re: /\btantrums?\b/i, label: 'tantrum' },
+  { re: /\bmeltdowns?\b/i, label: 'meltdown' },
+  { re: /\blaz(y|iness)\b/i, label: 'lazy' },
+  { re: /\b(low|high)[\s-]?functioning\b/i, label: 'low/high-functioning' },
+];
+
+/**
+ * Agency tools (break, stop, all done, not yet) are always valid choices
+ * (Framework §2.4), so they can never be the "unhelpful" option.
+ */
+export const AGENCY_WORDS = /\b(break|stop|all done|not yet)\b/i;
+
+/** Human review stages; moving past one needs a signed-off record in `reviews`. */
+const HUMAN_REVIEW_STAGES: Mission['reviewStatus'][] = ['frameworkReview', 'agencyReview', 'accessibilityReview', 'editorialReview', 'qaReview'];
 
 export interface GovernanceIssue {
   missionId: string;
@@ -83,11 +107,28 @@ export function checkMission(m: Mission): GovernanceIssue[] {
     if ((s.type === 'practice' || s.type === 'realWorld') && !s.evidence?.templateId) add('evidence', `${s.id} does not declare evidence.`);
   }
 
+  // Agency is never the wrong answer.
+  for (const st of m.steps)
+    if (st.type === 'quickChoice' || st.type === 'cardChoice')
+      for (const o of st.options)
+        if (!o.helpful && (AGENCY_WORDS.test(o.label) || (o.short && AGENCY_WORDS.test(o.short)))) add('agency', `${st.id}/${o.id} treats an agency tool as unhelpful.`);
+
   // Language rubric (§43, §57).
   const text = [m.title, m.summary, m.realWorldHook, ...m.steps.flatMap(stepText)].join(' \n ').toLowerCase();
+  const found = new Set<string>();
   for (const w of BANNED_WORDS) {
     const re = new RegExp(`\\b${w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
-    if (re.test(text)) add('language', `Uses avoided wording: “${w}”.`);
+    if (re.test(text)) found.add(w);
+  }
+  for (const p of BANNED_PATTERNS) if (p.re.test(text) && ![...found].some((w) => p.re.test(w))) found.add(p.label);
+  for (const w of found) add('language', `Uses avoided wording: “${w}”.`);
+
+  // Review honesty: reaching a stage means every human review before it was signed off and recorded.
+  if (m.reviewStatus !== 'retired') {
+    const reached = REVIEW_STAGES.findIndex((r) => r.key === m.reviewStatus);
+    for (const stage of HUMAN_REVIEW_STAGES)
+      if (REVIEW_STAGES.findIndex((r) => r.key === stage) < reached && !(m.reviews ?? []).some((r) => r.stage === stage))
+        add('review', `Claims ${m.reviewStatus} without a recorded ${stage} sign-off.`);
   }
 
   // Never self-approve.

@@ -3,8 +3,9 @@
  * (Framework §63). Every mission carries governance metadata (§41) and is
  * checked by content/governance.ts in the test suite.
  *
- * Release status is "pilot": content has passed automated checks but still
- * needs professional, editorial and user review before an "approved" claim.
+ * Release status is "pilot" and review status is "frameworkReview": content
+ * passes the automated checks but has no recorded human review yet, so it
+ * claims no later stage (governance requires a `reviews` record for each).
  */
 import { GUIDE } from './cast';
 import type { Mission } from './types';
@@ -20,7 +21,7 @@ const COMMON = {
   validityRule:
     'Valid when the learner reached the choice with access to all options. Stop/All Done or accidental taps are excluded; Tired check-ins mark opportunities access-limited.',
   accessibility: ['Tap alternative to every drag', 'Audio is never required', 'Colour is never the only signal', 'Reduced Motion supported', 'My Tools always available'],
-  reviewStatus: 'pilotReady' as const,
+  reviewStatus: 'frameworkReview' as const,
   releaseStatus: 'pilot' as const,
 };
 
@@ -94,6 +95,7 @@ export const MISSIONS: Mission[] = [
           {
             id: 'breathe',
             label: 'Take a deep breath and look again.',
+            short: 'Deep breath',
             art: 'fox',
             tone: 'white',
             helpful: true,
@@ -103,6 +105,7 @@ export const MISSIONS: Mission[] = [
           {
             id: 'yell',
             label: 'Yell and get upset.',
+            short: 'Yell',
             art: 'aiden',
             tone: 'white',
             helpful: false,
@@ -111,10 +114,11 @@ export const MISSIONS: Mission[] = [
           {
             id: 'device',
             label: 'Give up and play on a device instead.',
+            short: 'Play on a device',
             art: 'device',
             tone: 'white',
             helpful: false,
-            feedback: 'A break can help — but the ball is still lost. What could help Aiden keep looking calmly?',
+            feedback: 'Breaks are a good tool! Aiden could take a break and then look again calmly.',
           },
         ],
       },
@@ -194,6 +198,7 @@ export const MISSIONS: Mission[] = [
         id: 'scene-1',
         type: 'scenario',
         scene: 'playroom',
+        mood: 'frustrated',
         text: 'Pip is feeling frustrated because the tower fell down. What could help right now?',
         round: 1,
         rounds: 3,
@@ -205,10 +210,10 @@ export const MISSIONS: Mission[] = [
         title: 'What would you do?',
         evidence: { skillArea: 'social', templateId: 'respond-to-friend', tags: ['kindness'] },
         options: [
-          { id: 'kind-word', label: 'Say a kind and helpful word', icon: 'chat', tone: 'mint', helpful: true, feedback: 'Kind words can help a friend feel better.', modality: 'speech' },
-          { id: 'rebuild', label: 'Offer to help rebuild', icon: 'smile', tone: 'sky', helpful: true, feedback: 'Building together can turn a tough moment around.' },
-          { id: 'space', label: 'Give Pip some space', icon: 'clock', tone: 'lavender', helpful: true, feedback: 'Sometimes a friend needs a little quiet time. That’s kind too.' },
-          { id: 'cheer', label: 'Cheer them up', icon: 'heart', tone: 'blush', helpful: true, feedback: 'A smile or a cheer can show you care.' },
+          { id: 'kind-word', label: 'Say a kind and helpful word', short: 'Kind word', icon: 'chat', tone: 'mint', helpful: true, feedback: 'Kind words can help a friend feel better.', modality: 'speech' },
+          { id: 'rebuild', label: 'Offer to help rebuild', short: 'Help rebuild', icon: 'smile', tone: 'sky', helpful: true, feedback: 'Building together can turn a tough moment around.' },
+          { id: 'space', label: 'Give Pip some space', short: 'Give space', icon: 'clock', tone: 'lavender', helpful: true, feedback: 'Sometimes a friend needs a little quiet time. That’s kind too.' },
+          { id: 'cheer', label: 'Cheer them up', short: 'Cheer up', icon: 'heart', tone: 'blush', helpful: true, feedback: 'A smile or a cheer can show you care.' },
         ],
       },
       {
@@ -223,6 +228,7 @@ export const MISSIONS: Mission[] = [
         id: 'scene-2',
         type: 'scenario',
         scene: 'playroom',
+        mood: 'hopeful',
         text: 'Pip wants to build again, but needs the red block you are using. What could you do?',
         round: 2,
         rounds: 3,
@@ -234,16 +240,17 @@ export const MISSIONS: Mission[] = [
         title: 'What would you do?',
         evidence: { skillArea: 'social', templateId: 'respond-to-friend', tags: ['sharing'] },
         options: [
-          { id: 'share', label: 'Share the red block', icon: 'blocks', tone: 'mint', helpful: true, feedback: 'Sharing helps you both keep building.' },
-          { id: 'together', label: 'Ask: “Want to build together?”', icon: 'chat', tone: 'sky', helpful: true, feedback: 'Great idea — building together!', modality: 'speech' },
-          { id: 'next', label: 'Say: “You can have it next”', icon: 'clock', tone: 'lavender', helpful: true, feedback: 'Taking turns is fair. You can finish first and then share.' },
-          { id: 'hide', label: 'Hide the block', icon: 'question', tone: 'blush', helpful: false, feedback: 'Hiding it might make Pip sad. What’s another way you could both play?' },
+          { id: 'share', label: 'Share the red block', short: 'Share it', icon: 'blocks', tone: 'mint', helpful: true, feedback: 'Sharing helps you both keep building.' },
+          { id: 'together', label: 'Ask: “Want to build together?”', short: 'Build together', icon: 'chat', tone: 'sky', helpful: true, feedback: 'Great idea — building together!', modality: 'speech' },
+          { id: 'next', label: 'Say: “You can have it next”', short: 'Take turns', icon: 'clock', tone: 'lavender', helpful: true, feedback: 'Taking turns is fair. You can finish first and then share.' },
+          { id: 'hide', label: 'Hide the block', short: 'Hide it', icon: 'backpack', tone: 'butter', helpful: false, feedback: 'Hiding it might make Pip sad. What’s another way you could both play?' },
         ],
       },
       {
         id: 'scene-3',
         type: 'scenario',
         scene: 'playroom',
+        mood: 'happy',
         text: 'The new tower is super tall! Pip says, “Thank you for helping!” How could you answer?',
         round: 3,
         rounds: 3,
@@ -255,10 +262,10 @@ export const MISSIONS: Mission[] = [
         title: 'What would you do?',
         evidence: { skillArea: 'social', templateId: 'respond-to-friend', tags: ['reciprocity'] },
         options: [
-          { id: 'welcome', label: 'Say “You’re welcome!”', icon: 'chat', tone: 'mint', helpful: true, feedback: 'Nice answer!', modality: 'speech' },
-          { id: 'highfive', label: 'Give a high five', icon: 'highfive', tone: 'sky', helpful: true, feedback: 'High fives say “we did it!”', modality: 'gesture' },
-          { id: 'wave', label: 'Smile and wave', icon: 'wave', tone: 'lavender', helpful: true, feedback: 'A smile is a great answer too.', modality: 'gesture' },
-          { id: 'again', label: 'Build another one!', icon: 'heart', tone: 'blush', helpful: true, feedback: 'Let’s keep playing!' },
+          { id: 'welcome', label: 'Say “You’re welcome!”', short: 'You’re welcome', icon: 'chat', tone: 'mint', helpful: true, feedback: 'Nice answer!', modality: 'speech' },
+          { id: 'highfive', label: 'Give a high five', short: 'High five', icon: 'highfive', tone: 'sky', helpful: true, feedback: 'High fives say “we did it!”', modality: 'gesture' },
+          { id: 'wave', label: 'Smile and wave', short: 'Smile, wave', icon: 'wave', tone: 'lavender', helpful: true, feedback: 'A smile is a great answer too.', modality: 'gesture' },
+          { id: 'again', label: 'Build another one!', short: 'Build again', icon: 'heart', tone: 'blush', helpful: true, feedback: 'Let’s keep playing!' },
         ],
       },
       {
@@ -339,7 +346,7 @@ export const MISSIONS: Mission[] = [
           { id: 'ask', label: 'Ask: “Can you help me?”', icon: 'chat', tone: 'mint', helpful: true, feedback: 'Asking with words works great!', modality: 'speech' },
           { id: 'card', label: 'Show my Help card', icon: 'card', tone: 'sky', helpful: true, feedback: 'A Help card is a perfect way to ask.', modality: 'aac' },
           { id: 'point', label: 'Point and look for a grown-up', icon: 'point', tone: 'lavender', helpful: true, feedback: 'Pointing shows what you need. Nice!', modality: 'gesture' },
-          { id: 'climb', label: 'Climb up the shelf', icon: 'question', tone: 'blush', helpful: false, feedback: 'Climbing could be unsafe. What’s a safer way to get help?' },
+          { id: 'climb', label: 'Climb up the shelf', icon: 'mountain', tone: 'sky', helpful: false, feedback: 'Climbing could be unsafe. What’s a safer way to get help?' },
         ],
       },
       {
@@ -368,7 +375,7 @@ export const MISSIONS: Mission[] = [
           { id: 'help', label: 'Say: “Help, please!”', icon: 'chat', tone: 'mint', helpful: true, feedback: 'Clear and kind — great asking!', modality: 'speech' },
           { id: 'break', label: 'Take a break first', icon: 'clock', tone: 'lavender', helpful: true, feedback: 'A break is a great tool. You can come back when ready.' },
           { id: 'one-more', label: 'Try one more piece', icon: 'smile', tone: 'sky', helpful: true, feedback: 'Trying again is brave. Help is there if you need it.' },
-          { id: 'throw', label: 'Throw the puzzle', icon: 'question', tone: 'blush', helpful: false, feedback: 'That feeling is real! Throwing might break the pieces. What could help instead?' },
+          { id: 'throw', label: 'Throw the puzzle', icon: 'blocks', tone: 'sky', helpful: false, feedback: 'That feeling is real! Throwing might break the pieces. What could help instead?' },
         ],
       },
       {
@@ -561,7 +568,7 @@ export const MISSIONS: Mission[] = [
           { id: 'swings', label: 'Try the swings instead', icon: 'swing', tone: 'mint', helpful: true, feedback: 'Swings are fun too! Great flexible thinking.' },
           { id: 'ask', label: 'Ask what else we could do', icon: 'chat', tone: 'sky', helpful: true, feedback: 'Asking for ideas is a smart move.', modality: 'speech' },
           { id: 'feel', label: 'Say: “I feel disappointed”', icon: 'heart', tone: 'lavender', helpful: true, feedback: 'Naming a feeling helps. It’s okay to feel disappointed.' },
-          { id: 'leave', label: 'Give up on the park', icon: 'question', tone: 'blush', helpful: false, feedback: 'It’s okay to feel sad. Is there something else fun to try first?' },
+          { id: 'leave', label: 'Stomp off and say the park is dumb', icon: 'runner', tone: 'butter', helpful: false, feedback: 'It’s okay to feel sad. Is there something else fun to try first?' },
         ],
       },
       {
