@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#F3F8FD",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "app.brightpath.learning"
     },
     "android": {
@@ -40,13 +40,21 @@
           "imageWidth": 200
         }
       ],
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
       "expo-font",
       [
         "expo-image-picker",
         {
           "photosPermission": "BrightPath lets you attach an optional photo to an observation. Photos stay on this device.",
-          "cameraPermission": "Take an optional photo of an activity (not faces, please). Photos stay on this device."
+          "cameraPermission": "Take an optional photo of an activity (not faces, please). Photos stay on this device.",
+          "microphonePermission": false
         }
       ],
       "expo-asset"

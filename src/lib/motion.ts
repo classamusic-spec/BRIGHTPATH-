@@ -45,7 +45,11 @@ function subscribe(cb: () => void) {
   };
 }
 
-const getReduced = () => osReduced;
+// Start on first read so the web media query is known before the first frame.
+const getReduced = () => {
+  start();
+  return osReduced;
+};
 
 /** True while the OS asks for reduced motion (live). */
 export function useOsReducedMotion(): boolean {

@@ -11,9 +11,7 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
     <View style={styles.error}>
       <Canvas />
-      <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden aria-hidden>
-        <Fox pose="head" size={150} interactive={false} />
-      </View>
+      <Fox pose="head" size={150} interactive={false} decorative />
       <Txt v="title" center accessibilityRole="header" style={{ marginTop: 10, marginBottom: 24 }}>
         Something got tangled — let’s try again
       </Txt>

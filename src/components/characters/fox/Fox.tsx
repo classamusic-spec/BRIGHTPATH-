@@ -18,8 +18,8 @@ import Svg, { Ellipse, G, Path } from 'react-native-svg';
 
 import { GUIDE } from '@/content/cast';
 import { tapHaptic } from '@/lib/feedback';
-import { useCelebration, useMotionLevel, type MotionLevel } from '@/lib/motion';
-import * as speech from '@/lib/speech';
+import { useAmbientMotion, useCelebration, useMotionLevel, type MotionLevel } from '@/lib/motion';
+import { useSpeaking } from '@/lib/speech';
 import { useUid } from '@/lib/uid';
 
 import { Layer, pivot, Rig, type LayerStyle } from '../Layer';
@@ -45,14 +45,6 @@ import {
   type Expression,
   type FoxGradient,
 } from './FoxArt';
-
-type SpeakingHook = (select?: (s: { speaking: boolean }) => boolean) => unknown;
-/** `useSpeaking` (lib/speech) is a zustand store; tolerate it being absent or a plain boolean hook. */
-const useSpeakingHook: SpeakingHook = (speech as unknown as { useSpeaking?: SpeakingHook }).useSpeaking ?? (() => false);
-function useIsSpeaking(): boolean {
-  const r = useSpeakingHook((s) => s.speaking);
-  return typeof r === 'boolean' ? r : !!(r as { speaking?: boolean } | undefined)?.speaking;
-}
 
 /* Gradients each sheet paints with (keeps the DOM / native tree small). */
 const G_TAIL: FoxGradient[] = ['tail'];
@@ -155,13 +147,15 @@ function useFoxAnim(
   pose: FoxPose,
   level: MotionLevel,
   size: number,
-  { external, stepping, wavePaw }: { external?: SharedValue<number>; stepping: boolean; wavePaw: boolean },
+  { external, stepping, wavePaw, override }: { external?: SharedValue<number>; stepping: boolean; wavePaw: boolean; override: boolean },
 ): Anim {
   const on = level !== 'off';
   const full = level === 'full';
-  // Ambient loops only run on the focused screen; taps and hops follow the motion level.
+  // Ambient loops only run on the focused screen (and respect background motion);
+  // taps and hops follow the motion level. An explicit `motion` prop wins.
   const focused = useIsFocused();
-  const amb = on && focused;
+  const ambient = useAmbientMotion();
+  const amb = override ? on && focused : ambient;
   const celebration = useCelebration();
   const calmPose = pose === 'meditate' || pose === 'breathe' || pose === 'sleep';
   const breathDur = pose === 'sleep' ? 2600 : calmPose ? 2200 : 1700;
@@ -570,7 +564,7 @@ function JumpPose({ a, expression, backpack }: { a: Anim; expression: Expression
         <Sheet vb={vb} ids={['body']}>
           {(p) => (
             <Path
-              d="M 112 188 C 104 186 94 182 86 176 C 80 176 77 182 80 186 C 90 194 102 200 112 202 Z"
+              d="M 112 188 C 104 186 94 182 86 176 C 80 176 77 182 80 186 C 90 194 102 200 112 202 C 119 202 120 189 112 188 Z"
               fill={`url(#${p}body)`}
               stroke={FOX.furShade}
               strokeOpacity={0.25}
@@ -583,7 +577,7 @@ function JumpPose({ a, expression, backpack }: { a: Anim; expression: Expression
       <Sheet vb={vb} ids={G_LIMB} style={[pivot(98, 140, W, H), armUp]}>
         {(p) => (
           <G>
-            <Path d="M 102 134 C 88 118 72 98 60 82 C 54 74 40 77 40 87 C 42 96 48 104 56 112 C 68 126 80 140 92 150 Z" fill={`url(#${p}limb)`} />
+            <Path d="M 102 134 C 88 118 72 98 60 82 C 54 74 40 77 40 87 C 42 96 48 104 56 112 C 68 126 80 140 92 150 C 100 156 110 142 102 134 Z" fill={`url(#${p}limb)`} />
             <Paw p={p} cx={48} cy={80} rx={11} ry={12.5} rot={-32} beans />
           </G>
         )}
@@ -804,8 +798,9 @@ function SleepPose({ a, expression, backpack }: { a: Anim; expression: Expressio
   });
   return (
     <>
-      <Sheet vb={vb} ids={G_TAIL} style={[pivot(214, 156, W, H), tailStyle]}>
-        {(p) => <Tail p={p} flip transform="translate(214 156) rotate(-80) scale(0.8)" />}
+      {/* Tail curls up past the rump, tip clear of the pack (as on the board). */}
+      <Sheet vb={vb} ids={G_TAIL} style={[pivot(220, 150, W, H), tailStyle]}>
+        {(p) => <Tail p={p} flip transform="translate(220 150) rotate(-4) scale(0.66)" />}
       </Sheet>
       <Rig style={[pivot(140, 164, W, H), body]}>
         <Sheet vb={vb} ids={['body', 'pack']}>
@@ -877,7 +872,7 @@ export function Fox({
   accessibilityHint,
 }: FoxProps) {
   const level = useMotionLevel(motion);
-  const anim = useFoxAnim(pose, level, size, { external: breath, stepping, wavePaw });
+  const anim = useFoxAnim(pose, level, size, { external: breath, stepping, wavePaw, override: !!motion });
   const [W, H] = VB[pose];
   const width = (size * W) / H;
   const [tapExpr, setTapExpr] = useState<Expression | null>(null);
@@ -888,7 +883,7 @@ export function Fox({
   }, []);
 
   // Mouth: flaps while read-aloud speaks, rounds into an 'o' on a guided out-breath.
-  const speaking = useIsSpeaking();
+  const speaking = useSpeaking((st) => st.speaking);
   const flap = speaking && level !== 'off' && !decorative && pose !== 'sleep';
   const exhale = breathPhase === 'out';
   const mouthLive = flap || breathPhase !== undefined;

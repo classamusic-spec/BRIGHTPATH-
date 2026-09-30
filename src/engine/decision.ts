@@ -106,13 +106,14 @@ export function safetyTriggers(goal: GrowthGoal, observations: Observation[], no
     t.push('Two sessions in a row were mostly access-limited.');
   }
 
-  const adapt = goal.adaptations.slice(-3);
+  // Help-driven bumps are the learner advocating for themselves, not failed adaptations.
+  const adapt = goal.adaptations.filter((a) => !a.temporary).slice(-3);
   if (adapt.length === 3) {
     const valid = observations.filter((o) => o.quality === 'valid' && o.outcome !== 'accessLimited').sort(byTime);
     const before = valid.slice(Math.max(0, adapt[0].atValidCount - 6), adapt[0].atValidCount);
     const after = valid.slice(adapt[0].atValidCount);
     const rate = (xs: Observation[]) => (xs.length ? xs.filter(isSuccess).length / xs.length : 0);
-    if (after.length >= 3 && rate(after) <= rate(before)) t.push('Three adaptive changes have not improved access or performance.');
+    if (after.length >= 3 && rate(after) < 0.5 && rate(after) <= rate(before)) t.push('Three adaptive changes have not improved access or performance.');
   }
 
   if (goal.flags.conflictsWithAccess) t.push('The goal conflicts with the learner’s communication or access needs.');
@@ -282,9 +283,10 @@ export function recommend(goal: GrowthGoal, observations: Observation[], now: Da
 
   let kind: RecommendationKind = provisional.mode;
   reasons.push(provisional.reason);
-  if (supportChange && supportChange.direction === 'reduce') {
+  const raises = supportChange && (supportChange.direction === 'increase' || (supportChange.direction === 'restore' && supportChange.to > supportChange.from));
+  if (supportChange && !raises) {
     reasons.push(supportChange.reason);
-  } else if (supportChange && (supportChange.direction === 'increase' || supportChange.direction === 'restore')) {
+  } else if (supportChange) {
     kind = 'increaseSupport';
     reasons.unshift(supportChange.reason);
   }

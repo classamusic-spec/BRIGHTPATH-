@@ -1,4 +1,5 @@
 import { Redirect, Stack, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { MaxScale } from '@/components/ui/Txt';
@@ -13,8 +14,19 @@ export default function CoachLayout() {
   const level = useMotionLevel();
   const until = useGate((s) => s.until);
   const pathname = usePathname();
-  if (!automatedDevWeb && !isGateOpen(until)) {
-    return <Redirect href={{ pathname: '/gate', params: { next: pathname } }} />;
+  const locked = !automatedDevWeb && !isGateOpen(until);
+  // Remember where the grown-up was heading: once the stack is swapped for the
+  // redirect, the pathname collapses to /coach.
+  const [heldAt, setHeldAt] = useState<string | null>(null);
+  if (locked && heldAt === null) setHeldAt(pathname);
+  if (!locked && heldAt !== null) setHeldAt(null);
+  // Moving around the grown-up space keeps it open, so an active parent is not
+  // sent back to the gate mid-task (and the coach stack keeps its state).
+  useEffect(() => {
+    if (isGateOpen()) useGate.getState().unlock();
+  }, [pathname]);
+  if (locked) {
+    return <Redirect href={{ pathname: '/gate', params: { next: heldAt ?? pathname } }} />;
   }
   // Top-level coach hubs fade rather than slide (none when motion is off).
   const soft = level === 'off' ? 'none' : 'fade';

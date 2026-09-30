@@ -2,22 +2,36 @@
  * Supporting buddies: Pip (penguin), Tilly (turtle) and Roo (puppy).
  * Same layered rig as the guide fox so they breathe, blink and wiggle on the UI thread.
  */
+import { useIsFocused } from 'expo-router';
+import { useState } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useAnimatedStyle } from 'react-native-reanimated';
 import { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 
-import { useMotionLevel, type MotionLevel } from '@/lib/motion';
+import { useAmbientMotion, useMotionLevel, type MotionLevel } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
 
 import { Layer, pivot, Rig } from './Layer';
 import { useBlink, useOscillator, useTwitch } from './anim';
 
+export type BuddyMood = 'calm' | 'happy' | 'frustrated' | 'hopeful';
+
 type BuddyProps = {
   size?: number;
-  mood?: 'happy' | 'frustrated' | 'calm';
+  /** 'calm' (default) is the neutral open-eyed look; 'happy' closes the eyes into joy arcs. */
+  mood?: BuddyMood;
   motion?: MotionLevel;
+  /** Purely decorative: hidden from screen readers. */
+  decorative?: boolean;
   style?: StyleProp<ViewStyle>;
 };
+
+const hiddenFromA11y = { accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants', 'aria-hidden': true } as const;
+
+/** Image semantics for a buddy, or none at all when decorative. */
+function a11y(label: string, decorative?: boolean) {
+  return decorative ? hiddenFromA11y : { accessibilityRole: 'image' as const, accessibilityLabel: label };
+}
 
 function Eye({ x, y, rx = 7, ry = 8.6 }: { x: number; y: number; rx?: number; ry?: number }) {
   return (
@@ -29,20 +43,36 @@ function Eye({ x, y, rx = 7, ry = 8.6 }: { x: number; y: number; rx?: number; ry
   );
 }
 
-function useBuddyAnim(level: MotionLevel) {
-  const on = level !== 'off';
-  const breath = useOscillator(on, 1800);
-  const blink = useBlink(on);
-  const sway = useOscillator(on, level === 'full' ? 2400 : 3400, { rest: 0.5 });
+/** Closed, smiling eyes. */
+function JoyEyes({ d1, d2 }: { d1: string; d2: string }) {
+  return (
+    <G fill="none" stroke="#1B1414" strokeWidth={2.8} strokeLinecap="round">
+      <Path d={d1} />
+      <Path d={d2} />
+    </G>
+  );
+}
+
+function useBuddyAnim(level: MotionLevel, size: number, overridden: boolean) {
+  // Ambient loops run only on the focused screen, and each buddy gets its own tempo so a group never bobs in unison.
+  const focused = useIsFocused();
+  const ambient = useAmbientMotion();
+  const on = overridden ? level !== 'off' && focused : ambient;
+  const [j] = useState(() => 0.9 + Math.random() * 0.2);
+  const breath = useOscillator(on, Math.round(1800 * j));
+  const blink = useBlink(focused, level === 'off' ? 'slow' : 'normal');
+  const sway = useOscillator(on, Math.round((level === 'full' ? 2400 : 3400) * j), { rest: 0.5 });
   const twitch = useTwitch(on && level === 'full', 2400, 6000);
-  return { breath, blink, sway, twitch };
+  /** Points per viewBox unit (all buddies are drawn in a 200 box). */
+  const k = size / 200;
+  return { breath, blink, sway, twitch, k };
 }
 
 /* ------------------------------------------------------------------ Pip */
 
-export function Pip({ size = 160, mood = 'happy', motion, style }: BuddyProps) {
+export function Pip({ size = 160, mood = 'calm', motion, decorative, style }: BuddyProps) {
   const level = useMotionLevel(motion);
-  const a = useBuddyAnim(level);
+  const a = useBuddyAnim(level, size, !!motion);
   const p = useUid('pip');
   const W = 200;
   const H = 200;
@@ -54,8 +84,10 @@ export function Pip({ size = 160, mood = 'happy', motion, style }: BuddyProps) {
   const wingL = useAnimatedStyle(() => ({ transform: [{ rotate: `${a.twitch.value * 14 + (a.breath.value - 0.5) * 4}deg` }] }));
   const wingR = useAnimatedStyle(() => ({ transform: [{ rotate: `${-a.twitch.value * 14 - (a.breath.value - 0.5) * 4}deg` }] }));
   const frustrated = mood === 'frustrated';
+  const happy = mood === 'happy';
+  const label = mood === 'calm' ? 'Pip the penguin' : `Pip the penguin, looking ${mood}`;
   return (
-    <View style={[{ width: size, height: size }, style]} accessibilityRole="image" accessibilityLabel="Pip the penguin">
+    <View style={[{ width: size, height: size }, style]} {...a11y(label, decorative)}>
       <Rig style={[pivot(100, 190, W, H), body]}>
         <Layer vb={vb} style={[pivot(52, 118, W, H), wingL]}>
           <Defs>
@@ -95,26 +127,45 @@ export function Pip({ size = 160, mood = 'happy', motion, style }: BuddyProps) {
           <Path d="M 100 26 C 146 26 168 64 166 110 C 164 158 138 188 100 188 C 62 188 36 158 34 110 C 32 64 54 26 100 26 Z" fill={`url(#${p}b)`} />
           <Path d="M 100 112 C 128 112 144 132 144 154 C 144 174 126 186 100 186 C 74 186 56 174 56 154 C 56 132 72 112 100 112 Z" fill={`url(#${p}f)`} />
           <Path d="M 100 56 C 90 44 64 46 56 70 C 50 90 58 112 78 120 C 88 124 96 122 100 118 C 104 122 112 124 122 120 C 142 112 150 90 144 70 C 136 46 110 44 100 56 Z" fill={`url(#${p}f)`} />
-          <Ellipse cx={66} cy={102} rx={9} ry={5} fill="#FF9AA8" opacity={0.5} />
-          <Ellipse cx={134} cy={102} rx={9} ry={5} fill="#FF9AA8" opacity={0.5} />
+          <Ellipse cx={66} cy={102} rx={9} ry={5} fill="#FF9AA8" opacity={happy ? 0.7 : 0.5} />
+          <Ellipse cx={134} cy={102} rx={9} ry={5} fill="#FF9AA8" opacity={happy ? 0.7 : 0.5} />
           <Path d="M 88 98 C 92 92 108 92 112 98 C 110 106 104 110 100 110 C 96 110 90 106 88 98 Z" fill="#F7B23B" />
           <Path d="M 90 99 C 96 96 104 96 110 99" stroke="#E08C1E" strokeWidth={1.6} fill="none" />
         </Layer>
-        <Layer vb={vb} style={[pivot(100, 86, W, H), eyes]}>
-          <Eye x={79} y={86} rx={7.2} ry={9} />
-          <Eye x={121} y={86} rx={7.2} ry={9} />
-          {frustrated && (
-            <G>
-              {/* heavy, droopy upper lids + worried brows */}
-              <Path d="M 69 74 L 90 74 L 90 84 C 84 80 76 80 69 84 Z" fill="#FFFFFF" />
-              <Path d="M 110 74 L 131 74 L 131 84 C 124 80 116 80 110 84 Z" fill="#FFFFFF" />
-              <Path d="M 70 84 C 76 80 84 80 89 83" stroke="#1B1414" strokeWidth={2.4} strokeLinecap="round" fill="none" />
-              <Path d="M 111 83 C 116 80 124 80 130 84" stroke="#1B1414" strokeWidth={2.4} strokeLinecap="round" fill="none" />
-              <Path d="M 72 70 Q 80 66 88 70" stroke="#2A4FA8" strokeWidth={2.4} strokeLinecap="round" fill="none" />
-              <Path d="M 112 70 Q 120 66 128 70" stroke="#2A4FA8" strokeWidth={2.4} strokeLinecap="round" fill="none" />
-            </G>
-          )}
-        </Layer>
+        {happy ? (
+          <Layer vb={vb}>
+            <JoyEyes d1="M 71 88 Q 79 79 87 88" d2="M 113 88 Q 121 79 129 88" />
+          </Layer>
+        ) : (
+          <Layer vb={vb} style={[pivot(100, 86, W, H), eyes]}>
+            {/* Same face-patch fill as the body layer (user space), so the lids blend in. */}
+            <Defs>
+              <RadialGradient id={`${p}lid`} gradientUnits="userSpaceOnUse" cx={100} cy={76} rx={60} ry={48}>
+                <Stop offset="0" stopColor="#FFFFFF" />
+                <Stop offset="1" stopColor="#EEF3FB" />
+              </RadialGradient>
+            </Defs>
+            <Eye x={79} y={86} rx={7.2} ry={9} />
+            <Eye x={121} y={86} rx={7.2} ry={9} />
+            {frustrated && (
+              <G>
+                {/* heavy, droopy upper lids + cross, angled brows */}
+                <Path d="M 69 74 L 90 74 L 90 84 C 84 80 76 80 69 84 Z" fill={`url(#${p}lid)`} />
+                <Path d="M 110 74 L 131 74 L 131 84 C 124 80 116 80 110 84 Z" fill={`url(#${p}lid)`} />
+                <Path d="M 70 84 C 76 80 84 80 89 83" stroke="#1B1414" strokeWidth={2.4} strokeLinecap="round" fill="none" />
+                <Path d="M 111 83 C 116 80 124 80 130 84" stroke="#1B1414" strokeWidth={2.4} strokeLinecap="round" fill="none" />
+                <Path d="M 70 69 L 88 75" stroke="#2A4FA8" strokeWidth={2.6} strokeLinecap="round" fill="none" />
+                <Path d="M 112 75 L 130 69" stroke="#2A4FA8" strokeWidth={2.6} strokeLinecap="round" fill="none" />
+              </G>
+            )}
+            {mood === 'hopeful' && (
+              <G stroke="#2A4FA8" strokeWidth={2.4} strokeLinecap="round" fill="none">
+                <Path d="M 72 66 Q 80 62 88 66" />
+                <Path d="M 112 66 Q 120 62 128 66" />
+              </G>
+            )}
+          </Layer>
+        )}
       </Rig>
     </View>
   );
@@ -122,20 +173,20 @@ export function Pip({ size = 160, mood = 'happy', motion, style }: BuddyProps) {
 
 /* ---------------------------------------------------------------- Tilly */
 
-export function Tilly({ size = 160, motion, style }: BuddyProps) {
+export function Tilly({ size = 160, mood = 'calm', motion, decorative, style }: BuddyProps) {
   const level = useMotionLevel(motion);
-  const a = useBuddyAnim(level);
+  const a = useBuddyAnim(level, size, !!motion);
   const p = useUid('til');
   const W = 200;
   const H = 200;
   const vb = `0 0 ${W} ${H}`;
   const head = useAnimatedStyle(() => ({
-    transform: [{ translateY: -a.breath.value * 2 }, { rotate: `${(a.sway.value - 0.5) * 5}deg` }],
+    transform: [{ translateY: -a.breath.value * 2 * a.k }, { rotate: `${(a.sway.value - 0.5) * 5}deg` }],
   }));
   const eyes = useAnimatedStyle(() => ({ transform: [{ scaleY: 0.1 + 0.9 * a.blink.value }] }));
   const body = useAnimatedStyle(() => ({ transform: [{ scaleY: 1 + a.breath.value * 0.015 }] }));
   return (
-    <View style={[{ width: size, height: size }, style]} accessibilityRole="image" accessibilityLabel="Tilly the turtle">
+    <View style={[{ width: size, height: size }, style]} {...a11y(mood === 'happy' ? 'Tilly the turtle, looking happy' : 'Tilly the turtle', decorative)}>
       <Rig style={[pivot(100, 190, W, H), body]}>
         <Layer vb={vb}>
           <Defs>
@@ -171,10 +222,16 @@ export function Tilly({ size = 160, motion, style }: BuddyProps) {
             <Ellipse cx={128} cy={92} rx={8} ry={5} fill="#FF9AA0" opacity={0.45} />
             <Path d="M 88 96 Q 100 106 112 96" stroke="#1F5A2C" strokeWidth={3} strokeLinecap="round" fill="none" />
           </Layer>
-          <Layer vb={vb} style={[pivot(100, 78, W, H), eyes]}>
-            <Eye x={82} y={78} rx={7} ry={8.6} />
-            <Eye x={118} y={78} rx={7} ry={8.6} />
-          </Layer>
+          {mood === 'happy' ? (
+            <Layer vb={vb}>
+              <JoyEyes d1="M 75 80 Q 82 71 89 80" d2="M 111 80 Q 118 71 125 80" />
+            </Layer>
+          ) : (
+            <Layer vb={vb} style={[pivot(100, 78, W, H), eyes]}>
+              <Eye x={82} y={78} rx={7} ry={8.6} />
+              <Eye x={118} y={78} rx={7} ry={8.6} />
+            </Layer>
+          )}
         </Rig>
       </Rig>
     </View>
@@ -183,34 +240,37 @@ export function Tilly({ size = 160, motion, style }: BuddyProps) {
 
 /* ------------------------------------------------------------------ Roo */
 
-export function Roo({ size = 160, motion, style }: BuddyProps) {
+export function Roo({ size = 160, mood = 'calm', motion, decorative, style }: BuddyProps) {
   const level = useMotionLevel(motion);
-  const a = useBuddyAnim(level);
+  const a = useBuddyAnim(level, size, !!motion);
   const p = useUid('roo');
   const W = 200;
   const H = 200;
   const vb = `0 0 ${W} ${H}`;
   const head = useAnimatedStyle(() => ({
-    transform: [{ translateY: -a.breath.value * 1.6 }, { rotate: `${(a.sway.value - 0.5) * 7}deg` }],
+    transform: [{ translateY: -a.breath.value * 1.6 * a.k }, { rotate: `${(a.sway.value - 0.5) * 7}deg` }],
   }));
+  const body = useAnimatedStyle(() => ({ transform: [{ scaleY: 1 + a.breath.value * 0.015 }] }));
   const earL = useAnimatedStyle(() => ({ transform: [{ rotate: `${a.twitch.value * 10 + (a.sway.value - 0.5) * 5}deg` }] }));
   const earR = useAnimatedStyle(() => ({ transform: [{ rotate: `${-a.twitch.value * 10 - (a.sway.value - 0.5) * 5}deg` }] }));
   const eyes = useAnimatedStyle(() => ({ transform: [{ scaleY: 0.1 + 0.9 * a.blink.value }] }));
   return (
-    <View style={[{ width: size, height: size }, style]} accessibilityRole="image" accessibilityLabel="Roo the puppy">
-      <Layer vb={vb}>
-        <Defs>
-          <LinearGradient id={`${p}b`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#E9C39A" />
-            <Stop offset="1" stopColor="#D9A874" />
-          </LinearGradient>
-        </Defs>
-        <Path d="M 52 196 C 48 158 70 132 100 132 C 130 132 152 158 148 196 Z" fill={`url(#${p}b)`} />
-        <Path d="M 58 150 C 50 150 44 160 46 172 L 62 176 Z M 142 150 C 150 150 156 160 154 172 L 138 176 Z" fill="#E86A4A" />
-        <Ellipse cx={74} cy={190} rx={18} ry={10} fill="#E2B888" />
-        <Ellipse cx={126} cy={190} rx={18} ry={10} fill="#E2B888" />
-        <Path d="M 76 134 L 124 134 L 116 150 L 100 156 L 84 150 Z" fill="#2F6FE0" />
-      </Layer>
+    <View style={[{ width: size, height: size }, style]} {...a11y(mood === 'happy' ? 'Roo the puppy, looking happy' : 'Roo the puppy', decorative)}>
+      <Rig style={[pivot(100, 190, W, H), body]}>
+        <Layer vb={vb}>
+          <Defs>
+            <LinearGradient id={`${p}b`} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#E9C39A" />
+              <Stop offset="1" stopColor="#D9A874" />
+            </LinearGradient>
+          </Defs>
+          <Path d="M 52 196 C 48 158 70 132 100 132 C 130 132 152 158 148 196 Z" fill={`url(#${p}b)`} />
+          <Path d="M 58 150 C 50 150 44 160 46 172 L 62 176 Z M 142 150 C 150 150 156 160 154 172 L 138 176 Z" fill="#E86A4A" />
+          <Ellipse cx={74} cy={190} rx={18} ry={10} fill="#E2B888" />
+          <Ellipse cx={126} cy={190} rx={18} ry={10} fill="#E2B888" />
+          <Path d="M 76 134 L 124 134 L 116 150 L 100 156 L 84 150 Z" fill="#2F6FE0" />
+        </Layer>
+      </Rig>
       <Rig style={[pivot(100, 132, W, H), head]}>
         <Layer vb={vb} style={[pivot(58, 60, W, H), earL]}>
           <Path d="M 60 50 C 40 48 26 64 26 88 C 26 108 34 118 44 116 C 54 114 58 98 62 84 Z" fill="#8A5634" />
@@ -233,10 +293,16 @@ export function Roo({ size = 160, motion, style }: BuddyProps) {
           <Path d="M 100 106 L 100 112 M 92 113 Q 100 120 108 113" stroke="#2A1A18" strokeWidth={2.2} strokeLinecap="round" fill="none" />
           <Path d="M 95 116 C 97 124 103 124 105 116 Z" fill="#F27D8C" />
         </Layer>
-        <Layer vb={vb} style={[pivot(100, 84, W, H), eyes]}>
-          <Eye x={82} y={84} rx={6.6} ry={8} />
-          <Eye x={118} y={84} rx={6.6} ry={8} />
-        </Layer>
+        {mood === 'happy' ? (
+          <Layer vb={vb}>
+            <JoyEyes d1="M 75 86 Q 82 77 89 86" d2="M 111 86 Q 118 77 125 86" />
+          </Layer>
+        ) : (
+          <Layer vb={vb} style={[pivot(100, 84, W, H), eyes]}>
+            <Eye x={82} y={84} rx={6.6} ry={8} />
+            <Eye x={118} y={84} rx={6.6} ry={8} />
+          </Layer>
+        )}
       </Rig>
     </View>
   );

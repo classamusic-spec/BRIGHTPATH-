@@ -161,6 +161,11 @@ export interface AdaptationRecord {
   reason: string;
   /** Valid-opportunity count when the change was made (rate limiting). */
   atValidCount: number;
+  /**
+   * A short help-driven bump (raised after a help or more-time request, or the
+   * return to the earlier level). Not counted as an adaptive change.
+   */
+  temporary?: boolean;
 }
 
 export interface SpacedState {
@@ -188,6 +193,8 @@ export interface GrowthGoal {
   notes: string;
   createdAt: string;
   supportLevel: SupportLevel;
+  /** Adults fixed the support level; automatic changes are not suggested. */
+  supportLocked?: boolean;
   protectedSupports: string[];
   realWorldRequired: boolean;
   inappropriateIf?: string;

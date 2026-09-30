@@ -13,12 +13,14 @@ const AUDIO_PRESENTATIONS = new Set(['audioVisual', 'textAudio', 'iconFirst', 'm
 /**
  * Read text aloud. Automatic when the learner has Read Aloud on, their
  * presentation leans on audio or pictures, or they are in band A
- * (pre-readers); otherwise only when asked (`force`).
+ * (pre-readers) and the session is not Quiet; otherwise only when asked (`force`).
  */
 export function speak(text: string, opts: { force?: boolean } = {}) {
   const s = useApp.getState();
   const l = selectLearner(s);
-  const auto = !!l && (l.access?.readAloud || AUDIO_PRESENTATIONS.has(l.access?.presentation ?? '') || l.band === 'A');
+  // A Quiet session hushes the presentation-based default; an explicit Read Aloud setting is an access need and stays on.
+  const byDefault = !s.session.quiet && (AUDIO_PRESENTATIONS.has(l?.access?.presentation ?? '') || l?.band === 'A');
+  const auto = !!l && (!!l.access?.readAloud || byDefault);
   if (!opts.force && !auto) return;
   Speech.stop();
   Speech.speak(text.replace(/[“”]/g, '"'), {

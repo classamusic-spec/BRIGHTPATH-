@@ -40,6 +40,8 @@ export type SupportChange = {
   from: SupportLevel;
   to: SupportLevel;
   reason: string;
+  /** Help-driven bump (or the return from one); not counted as an adaptive change. */
+  temporary?: boolean;
 };
 
 const clampLevel = (n: number) => Math.max(1, Math.min(7, n)) as SupportLevel;
@@ -47,12 +49,15 @@ const clampLevel = (n: number) => Math.max(1, Math.min(7, n)) as SupportLevel;
 /**
  * Suggests one support change for a goal, honouring:
  * - fade after 3 successful valid opportunities at the current level (§13)
- * - restore after 2 consecutive misses following a fade, or a help request
+ * - restore after 2 consecutive misses following a fade
+ * - a help request raises support once, temporarily; two successes bring it back
+ * - asking for help is never counted against the help goal itself
  * - temporary increase for a new context (not regression)
  * - one meaningful change per 3 valid opportunities (§26)
  * - never fade protected accommodations (handled by caller: they are not on the ladder)
  */
 export function suggestSupportChange(goal: GrowthGoal, observations: Observation[]): SupportChange | null {
+  if (goal.supportLocked) return null;
   const valid = observations
     .filter((o) => o.quality === 'valid' && o.outcome !== 'accessLimited')
     .sort((a, b) => (a.at < b.at ? -1 : 1));
@@ -60,6 +65,8 @@ export function suggestSupportChange(goal: GrowthGoal, observations: Observation
   const level = goal.supportLevel;
   const last = goal.adaptations[goal.adaptations.length - 1];
   const sinceLast = last ? valid.length - last.atValidCount : valid.length;
+  // Observations that arrived after the latest change (each one can only drive one change).
+  const isNew = (o: Observation) => !last || o.at > last.at;
 
   // Restore after a fade that did not hold.
   if (last && last.kind === 'fade') {
@@ -75,19 +82,36 @@ export function suggestSupportChange(goal: GrowthGoal, observations: Observation
     }
   }
 
-  const recent = all.slice(-3);
-  const helpAsked = recent.some((o) => o.tools.some((t) => HELP_TOOLS.includes(t)));
-  if (helpAsked && level < 7) {
+  // A help-driven bump settles back once two tries in a row have gone well.
+  const helpBump = last && last.kind === 'increase' && last.temporary;
+  if (helpBump) {
+    const before = clampLevel(Number(last.from ?? level));
+    const lastTwo = valid.filter(isNew).slice(-2);
+    if (before < level && lastTwo.length === 2 && lastTwo.every(isSuccess)) {
+      return {
+        direction: 'restore',
+        from: level,
+        to: before,
+        reason: 'Two tries went well after the extra help, so support goes back to where it was.',
+        temporary: true,
+      };
+    }
+  }
+
+  const recentSinceAdapt = all.filter(isNew).slice(-3);
+  const helpAsked = goal.templateId !== 'request-help' && recentSinceAdapt.some((o) => o.tools.some((t) => HELP_TOOLS.includes(t)));
+  if (helpAsked && !helpBump && level < 7) {
     return {
       direction: 'increase',
       from: level,
       to: clampLevel(level + 1),
       reason: 'The learner asked for help or more time — support goes up for now. That is self-advocacy, not a setback.',
+      temporary: true,
     };
   }
 
   const lastObs = all[all.length - 1];
-  if (lastObs && lastObs.context.novelty === 'new' && level < 7) {
+  if (lastObs && isNew(lastObs) && lastObs.context.novelty === 'new' && level < 7) {
     return {
       direction: 'increase',
       from: level,

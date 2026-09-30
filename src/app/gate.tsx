@@ -12,7 +12,7 @@ import { BackButton, FitBox, Tap, Txt } from '@/components/ui';
 import { announce } from '@/lib/announce';
 import { selectHaptic, successHaptic } from '@/lib/feedback';
 import { useMotionLevel } from '@/lib/motion';
-import { speak } from '@/lib/speech';
+import { speak, stopSpeaking } from '@/lib/speech';
 import { useGate } from '@/store/gate';
 import { colors, radius, shadows } from '@/theme';
 
@@ -37,6 +37,7 @@ export default function ParentGate() {
   const prompt = useMemo(() => challenge.map((d) => WORDS[d]).join(' · '), [challenge]);
   useEffect(() => {
     speak(`Please enter the numbers ${challenge.map((d) => WORDS[d]).join(', ')}`, { force: true });
+    return () => stopSpeaking();
   }, [challenge]);
 
   const press = (d: number) => {
@@ -48,7 +49,7 @@ export default function ParentGate() {
         successHaptic();
         useGate.getState().unlock();
         // Only ever continue into the grown-up space.
-        const dest = typeof nextParam === 'string' && nextParam.startsWith('/coach') ? nextParam : '/coach';
+        const dest = typeof nextParam === 'string' && (nextParam === '/coach' || nextParam.startsWith('/coach/')) ? nextParam : '/coach';
         setTimeout(() => router.replace(dest as Href), 150);
       } else {
         announce('Those numbers did not match. Here are new ones to try.');
@@ -92,13 +93,7 @@ export default function ParentGate() {
         </Animated.View>
       </View>
       <FitBox style={styles.foxWrap} aspect={0.86} max={300} min={0}>
-        {(size) =>
-          size >= 90 ? (
-            <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden aria-hidden>
-              <Fox pose="wave" size={size} interactive={false} />
-            </View>
-          ) : null
-        }
+        {(size) => (size >= 90 ? <Fox pose="wave" size={size} interactive={false} decorative /> : null)}
       </FitBox>
       <View style={[styles.pad, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
         {keys.map((k, i) => (

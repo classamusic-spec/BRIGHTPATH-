@@ -3,11 +3,12 @@
  * avatars for the coach experience. Friendly, non-photorealistic, no faces
  * of real people.
  */
+import { useIsFocused } from 'expo-router';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 
-import { useMotionLevel, type MotionLevel } from '@/lib/motion';
+import { useAmbientMotion, useMotionLevel, type MotionLevel } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
 
 import { Layer, pivot, Rig } from './Layer';
@@ -29,9 +30,11 @@ function Eye({ x, y, rx = 5.4, ry = 6.6 }: { x: number; y: number; rx?: number; 
 
 /* ----------------------------------------------------------------- Aiden */
 
-type AidenProps = { size?: number; mood?: 'sad' | 'calm' | 'happy'; motion?: MotionLevel; style?: StyleProp<ViewStyle> };
+export type AidenMood = 'sad' | 'calm' | 'happy' | 'frustrated';
 
-function AidenHead({ p, mood }: { p: string; mood: 'sad' | 'calm' | 'happy' }) {
+type AidenProps = { size?: number; mood?: AidenMood; motion?: MotionLevel; style?: StyleProp<ViewStyle> };
+
+function AidenHead({ p, mood }: { p: string; mood: AidenMood }) {
   return (
     <G>
       <Ellipse cx={58} cy={86} rx={9} ry={11} fill={SKIN_SHADE} />
@@ -44,7 +47,13 @@ function AidenHead({ p, mood }: { p: string; mood: 'sad' | 'calm' | 'happy' }) {
       <Path d="M 88 26 C 84 18 86 12 92 10 C 92 16 94 20 98 22 Z M 118 20 C 122 12 128 10 134 12 C 130 16 128 20 128 24 Z" fill={HAIR} />
       <Ellipse cx={74} cy={108} rx={8} ry={5} fill="#FF9C8E" opacity={0.45} />
       <Ellipse cx={126} cy={108} rx={8} ry={5} fill="#FF9C8E" opacity={0.45} />
-      {mood === 'sad' ? (
+      {mood === 'frustrated' ? (
+        <G>
+          <Path d="M 72 74 L 88 79" stroke={HAIR_DARK} strokeWidth={2.8} strokeLinecap="round" fill="none" />
+          <Path d="M 112 79 L 128 74" stroke={HAIR_DARK} strokeWidth={2.8} strokeLinecap="round" fill="none" />
+          <Path d="M 90 117 Q 100 112 110 117" stroke="#8A3B2E" strokeWidth={2.8} strokeLinecap="round" fill="none" />
+        </G>
+      ) : mood === 'sad' ? (
         <G>
           <Path d="M 72 78 Q 80 72 88 76" stroke={HAIR_DARK} strokeWidth={2.6} strokeLinecap="round" fill="none" />
           <Path d="M 112 76 Q 120 72 128 78" stroke={HAIR_DARK} strokeWidth={2.6} strokeLinecap="round" fill="none" />
@@ -78,8 +87,8 @@ function AidenDefs({ p }: { p: string }) {
         <Stop offset="1" stopColor="#2458C4" />
       </LinearGradient>
       <LinearGradient id={`${p}pants`} x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor="#5B6273" />
-        <Stop offset="1" stopColor="#434959" />
+        <Stop offset="0" stopColor="#5A7CC4" />
+        <Stop offset="1" stopColor="#3F5FA8" />
       </LinearGradient>
     </Defs>
   );
@@ -88,35 +97,45 @@ function AidenDefs({ p }: { p: string }) {
 /** Aiden sitting on the floor, chin in hand (Story Scenario). */
 export function Aiden({ size = 220, mood = 'sad', motion, style }: AidenProps) {
   const level = useMotionLevel(motion);
-  const on = level !== 'off';
+  const focused = useIsFocused();
+  const ambient = useAmbientMotion();
+  const on = motion ? level !== 'off' && focused : ambient;
   const breath = useOscillator(on, 2400);
-  const blink = useBlink(on);
+  const blink = useBlink(focused, level === 'off' ? 'slow' : 'normal');
   const p = useUid('aid');
   const W = 200;
   const H = 220;
   const vb = `0 0 ${W} ${H}`;
+  const k = size / H;
+  const chinInHand = mood === 'sad';
   const body = useAnimatedStyle(() => ({ transform: [{ scaleY: 1 + breath.value * 0.015 }] }));
-  const head = useAnimatedStyle(() => ({ transform: [{ translateY: breath.value * 1.5 }, { rotate: `${-4 + breath.value * 1.5}deg` }] }));
+  // The head rises with the in-breath, like the body.
+  const head = useAnimatedStyle(() => ({ transform: [{ translateY: -breath.value * 1.2 * k }, { rotate: `${(chinInHand ? -4 : -1) + breath.value * 1.5}deg` }] }));
   const eyes = useAnimatedStyle(() => ({ transform: [{ scaleY: 0.1 + 0.9 * blink.value }] }));
   return (
-    <View style={[{ width: (size * W) / H, height: size }, style]} accessibilityRole="image" accessibilityLabel="Aiden sitting and feeling frustrated">
+    <View style={[{ width: (size * W) / H, height: size }, style]} accessibilityRole="image" accessibilityLabel={`Aiden looking ${mood}`}>
       <Rig style={[pivot(100, 216, W, H), body]}>
         <Layer vb={vb}>
           <AidenDefs p={p} />
           {/* Cross-legged: the left leg sits behind (knee out left, foot tucked
               under the right knee), the right leg crosses in front. */}
-          <Path d="M 94 172 C 70 170 38 176 24 190 C 16 199 20 210 34 212 C 62 215 104 211 148 207 L 148 194 C 122 194 102 188 94 172 Z" fill="#3E4555" />
+          <Path d="M 94 172 C 70 170 38 176 24 190 C 16 199 20 210 34 212 C 62 215 104 211 148 207 L 148 194 C 122 194 102 188 94 172 Z" fill="#2E3650" />
+          <Path d="M 106 172 C 130 170 162 176 176 190 C 184 199 180 210 166 212 C 138 216 98 215 62 213 C 51 212 47 204 53 198 C 80 196 98 190 106 172 Z" fill={`url(#${p}pants)`} />
+          <Path d="M 118 190 C 128 196 146 200 164 200" stroke="#2E3650" strokeWidth={2} strokeLinecap="round" opacity={0.5} fill="none" />
+          {/* Back-leg shoe, drawn over the front leg so both feet read. */}
           <Path d="M 146 194 C 156 188 173 188 180 197 C 184 206 176 213 161 213 C 150 213 141 206 146 194 Z" fill="#FFFFFF" />
           <Path d="M 146 206 C 156 210 170 210 180 204" stroke="#DDE2EC" strokeWidth={2.4} fill="none" />
-          <Path d="M 106 172 C 130 170 162 176 176 190 C 184 199 180 210 166 212 C 138 216 98 215 62 213 C 51 212 47 204 53 198 C 80 196 98 190 106 172 Z" fill={`url(#${p}pants)`} />
-          <Path d="M 118 190 C 128 196 146 200 164 200" stroke="#3E4555" strokeWidth={2} strokeLinecap="round" opacity={0.5} fill="none" />
           <Path d="M 56 196 C 46 189 28 189 21 198 C 17 206 25 213 40 213 C 51 213 60 206 56 196 Z" fill="#FFFFFF" />
           <Path d="M 21 205 C 30 210 46 210 56 205" stroke="#DDE2EC" strokeWidth={2.4} fill="none" />
           <Path d="M 30 196 L 42 195 M 33 200 L 45 199" stroke="#C9D1E0" strokeWidth={1.6} strokeLinecap="round" />
           <Path d="M 62 176 C 58 150 66 130 100 126 C 134 130 142 150 138 176 Z" fill={`url(#${p}shirt)`} />
           <Path d="M 66 150 C 54 160 50 176 60 184 C 70 190 92 188 104 182 L 100 170 C 88 172 78 170 76 162 Z" fill={`url(#${p}shirt)`} />
+          {chinInHand ? (
+            <Path d="M 130 150 C 144 150 150 134 144 116 L 132 112 C 134 126 132 136 124 142 Z" fill={`url(#${p}shirt)`} />
+          ) : (
+            <Path d="M 134 150 C 146 160 150 176 140 184 C 130 190 108 188 96 182 L 100 170 C 112 172 122 170 124 162 Z" fill={`url(#${p}shirt)`} />
+          )}
           <Ellipse cx={100} cy={180} rx={9} ry={7} fill={SKIN} />
-          <Path d="M 130 150 C 144 150 150 134 144 116 L 132 112 C 134 126 132 136 124 142 Z" fill={`url(#${p}shirt)`} />
         </Layer>
       </Rig>
       <Rig style={[pivot(100, 132, W, H), head]}>
@@ -130,11 +149,14 @@ export function Aiden({ size = 220, mood = 'sad', motion, style }: AidenProps) {
           <Eye x={80} y={86} />
           <Eye x={120} y={86} />
         </Layer>
+        {chinInHand && (
+          <Layer vb={vb}>
+            {/* Hand under the chin moves with the head. */}
+            <Path d="M 128 116 C 134 106 146 104 150 112 C 152 120 146 128 138 130 C 132 130 126 124 128 116 Z" fill={SKIN} />
+            <Path d="M 132 110 C 136 106 142 106 144 110" stroke={SKIN_SHADE} strokeWidth={1.6} fill="none" />
+          </Layer>
+        )}
       </Rig>
-      <Layer vb={vb}>
-        <Path d="M 128 116 C 134 106 146 104 150 112 C 152 120 146 128 138 130 C 132 130 126 124 128 116 Z" fill={SKIN} />
-        <Path d="M 132 110 C 136 106 142 106 144 110" stroke={SKIN_SHADE} strokeWidth={1.6} fill="none" />
-      </Layer>
     </View>
   );
 }
