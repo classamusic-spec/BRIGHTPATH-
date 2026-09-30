@@ -233,12 +233,13 @@ export function buildSeed(now: Date = new Date()): SeedData {
     routines: { home: 'growing', school: 'some', social: 'some', outdoors: 'growing' },
   };
   // Each recipe lands in its target band (see cellStatus): strong ≈ 0.95 over
-  // 4 observations, growing ≈ 0.85 over 3, some ≈ 0.55, needs ≈ 0.25.
+  // 4 observations each (the matrix needs 4 before it shows a band):
+  // growing ≈ 0.79, some ≈ 0.56, needs ≈ 0.26.
   const recipe: Record<Exclude<Target, 'none'>, [Outcome, SupportLevel][]> = {
     strong: [['independent', 1], ['independent', 1], ['independent', 2], ['supported', 2]],
-    growing: [['independent', 2], ['supported', 3], ['supported', 3]],
-    some: [['supported', 4], ['partial', 5], ['supported', 3]],
-    needs: [['partial', 5], ['notDemonstrated', 6], ['supported', 6]],
+    growing: [['independent', 2], ['supported', 3], ['supported', 3], ['supported', 4]],
+    some: [['supported', 4], ['partial', 5], ['supported', 3], ['supported', 4]],
+    needs: [['partial', 5], ['notDemonstrated', 6], ['supported', 6], ['partial', 5]],
   };
   const areaGoal: Partial<Record<SkillArea, GrowthGoal>> = {
     communication: gKind,

@@ -11,10 +11,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
-import { useMotionLevel } from '@/lib/motion';
+import { useAmbientMotion, useMotionLevel } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
 
 import { BlueCloud, Bush, CloudShape, SCENE, SunDisk, SunRays, Tree } from './elements';
+import { useSeedSize } from './Stage';
 
 export type TreeSpec = { x: number; base: number; h: number; tone?: 'teal' | 'light' | 'deep' };
 export type CloudSpec = { x: number; y: number; s?: number };
@@ -65,8 +66,7 @@ function useSway(enabled: boolean, deg: number, duration: number, delay: number)
 }
 
 export function Cloud({ left, top, s = 1, index = 0 }: { left: number; top: number; s?: number; index?: number }) {
-  const level = useMotionLevel();
-  const style = useDrift(level !== 'off', 16 * s, 7000 + index * 1300, index * 600);
+  const style = useDrift(useAmbientMotion(), 16 * s, 7000 + index * 1300, index * 600);
   const w = 100 * s;
   const h = 34 * s;
   return (
@@ -80,7 +80,7 @@ export function Cloud({ left, top, s = 1, index = 0 }: { left: number; top: numb
 
 export function SwayTree({ left, bottom, h, tone = 'teal', index = 0 }: { left: number; bottom: number; h: number; tone?: 'teal' | 'light' | 'deep'; index?: number }) {
   const level = useMotionLevel();
-  const style = useSway(level === 'full', 1.6, 2600 + (index % 4) * 450, (index % 5) * 300);
+  const style = useSway(useAmbientMotion() && level === 'full', 1.6, 2600 + (index % 4) * 450, (index % 5) * 300);
   const w = h * 0.62;
   return (
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: left - w / 2, top: bottom - h, width: w, height: h, transformOrigin: '50% 100%' }, style]}>
@@ -92,13 +92,19 @@ export function SwayTree({ left, bottom, h, tone = 'teal', index = 0 }: { left: 
 }
 
 export function Sun({ size = 90, cloud = false, style }: { size?: number; cloud?: boolean; style?: StyleProp<ViewStyle> }) {
-  const level = useMotionLevel();
+  const on = useAmbientMotion();
   const spin = useSharedValue(0);
   useEffect(() => {
-    if (level === 'off') return;
-    spin.value = withRepeat(withTiming(1, { duration: 24000, easing: Easing.linear }), -1, false);
+    if (!on) {
+      cancelAnimation(spin);
+      return;
+    }
+    // Resume from wherever the rays stopped so they never jump.
+    const from = spin.value % 1;
+    spin.value = from;
+    spin.value = withRepeat(withTiming(from + 1, { duration: 24000, easing: Easing.linear }), -1, false);
     return () => cancelAnimation(spin);
-  }, [level, spin]);
+  }, [on, spin]);
   const rays = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value * 360}deg` }] }));
   const r = 28;
   const box = size;
@@ -127,17 +133,22 @@ export function Sun({ size = 90, cloud = false, style }: { size?: number; cloud?
 export function Landscape({
   spec,
   style,
+  initialSize,
   children,
 }: {
   spec: LandscapeSpec;
   style?: StyleProp<ViewStyle>;
+  /** Size to place props with before the first layout ('window' for full-screen backdrops). */
+  initialSize?: { w: number; h: number } | 'window';
   children?: ReactNode;
 }) {
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const seed = useSeedSize(style, initialSize);
+  const [measured, setSize] = useState<{ w: number; h: number } | null>(null);
+  const size = measured ?? seed;
   const id = useUid('ls');
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
-    if (!size || Math.abs(size.w - width) > 1 || Math.abs(size.h - height) > 1) setSize({ w: width, h: height });
+    if (!measured || Math.abs(measured.w - width) > 1 || Math.abs(measured.h - height) > 1) setSize({ w: width, h: height });
   };
   const {
     skyTop = SCENE.skyTop,

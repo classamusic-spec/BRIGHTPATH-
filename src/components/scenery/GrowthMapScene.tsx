@@ -1,15 +1,17 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { Fox } from '@/components/characters/fox/Fox';
 import { useOscillator } from '@/components/characters/anim';
-import { useMotionLevel } from '@/lib/motion';
+import { useAmbientMotion, useMotionLevel } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
 
 import { Bush, CloudShape, Mountain, SCENE, Star5, Tree, Tuft } from './elements';
 import { Stage, StageLayer, StageNode, useStage } from './Stage';
+import { cloudBox } from './WorldMap';
 
 export const GROWTH_VB = { w: 390, h: 520 };
 
@@ -47,23 +49,45 @@ function along(progress: number): [number, number] {
 
 export const SIGNPOSTS = {
   communication: { x: 268, y: 118 },
-  emotions: { x: 294, y: 196 },
+  emotions: { x: 284, y: 196 },
   independence: { x: 264, y: 284 },
   routines: { x: 256, y: 366 },
 };
 
+/**
+ * Maple walks in from the start of the trail to the learner's progress, then
+ * stops and waves. With motion off she is simply standing there.
+ */
 function WalkingFox({ progress }: { progress: number }) {
   const b = useStage();
-  const level = useMotionLevel();
-  const start = along(progress);
-  const x = useSharedValue(start[0]);
-  const y = useSharedValue(start[1]);
+  const still = useMotionLevel() === 'off';
+  const [x0, y0] = along(still ? progress : 0);
+  const x = useSharedValue(x0);
+  const y = useSharedValue(y0);
+  // Walking until she reaches the current progress; motion off means she is already there.
+  const [arrivedAt, setArrivedAt] = useState<number | null>(null);
+  const walking = !still && arrivedAt !== progress;
   useEffect(() => {
     const [nx, ny] = along(progress);
-    const cfg = { duration: level === 'off' ? 0 : 1600, easing: Easing.inOut(Easing.quad) };
+    if (still) {
+      cancelAnimation(x);
+      cancelAnimation(y);
+      x.value = nx;
+      y.value = ny;
+      return;
+    }
+    // Walk from wherever she is now (the trail start on mount).
+    const far = Math.hypot(nx - x.value, ny - y.value) >= 1;
+    const cfg = { duration: far ? 900 + 1400 * Math.max(0, Math.min(1, progress)) : 0, easing: Easing.inOut(Easing.quad) };
     x.value = withTiming(nx, cfg);
-    y.value = withTiming(ny, cfg);
-  }, [progress, level, x, y]);
+    y.value = withTiming(ny, cfg, (done) => {
+      if (done) scheduleOnRN(setArrivedAt, progress);
+    });
+    return () => {
+      cancelAnimation(x);
+      cancelAnimation(y);
+    };
+  }, [progress, still, x, y]);
   const size = 228 * b.scale;
   const style = useAnimatedStyle(() => ({
     position: 'absolute',
@@ -74,17 +98,21 @@ function WalkingFox({ progress }: { progress: number }) {
   }));
   return (
     <Animated.View style={style}>
-      <Fox pose="walk" size={size} />
+      <Fox pose={walking ? 'walk' : 'wave'} stepping={walking} size={size} decorative interactive={false} />
     </Animated.View>
   );
 }
 
+const CLOUDS = [
+  { x: 70, y: 36, s: 0.65 },
+  { x: 214, y: 40, s: 0.55 },
+];
+
 function Clouds() {
-  const level = useMotionLevel();
-  const t = useOscillator(level !== 'off', 9000);
+  const t = useOscillator(useAmbientMotion(), 9000);
   const s = useAnimatedStyle(() => ({ transform: [{ translateX: (t.value - 0.5) * 16 }] }));
   return (
-    <StageLayer style={s}>
+    <StageLayer style={s} box={cloudBox(CLOUDS)}>
       <CloudShape x={70} y={36} s={0.65} />
       <CloudShape x={214} y={40} s={0.55} />
     </StageLayer>

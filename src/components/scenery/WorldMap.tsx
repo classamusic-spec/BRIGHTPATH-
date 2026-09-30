@@ -4,7 +4,7 @@ import { useAnimatedStyle } from 'react-native-reanimated';
 import { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { useOscillator, usePhase } from '@/components/characters/anim';
-import { useMotionLevel } from '@/lib/motion';
+import { useAmbientMotion, useMotionLevel } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
 
 import { Bush, CloudShape, House, Lighthouse, Mountain, RoundTree, SCENE, Tree, Tuft } from './elements';
@@ -21,22 +21,40 @@ export const WORLD_PINS = {
   myWorld: { x: 160, y: 712 },
 };
 
-const PATH_1 = 'M 188 252 C 206 292 252 322 230 366 C 208 406 126 418 64 452 C 38 466 16 472 -12 476';
-const PATH_2 = 'M 252 584 C 284 622 308 672 324 714 C 332 738 336 792 340 844';
+/** One sandy trail that visits every pin in order: explore → quests → (bridge) → calm → myWorld. */
+const TRAIL = 'M 282 288 C 262 346 130 352 110 428 C 160 436 206 424 210 466 C 218 500 250 530 274 562 C 170 566 150 650 160 712';
+/** Where the trail crosses the river, and the trail's heading there (degrees). */
+const BRIDGE = { x: 209, y: 458, angle: 84 };
 const RIVER = 'M -24 488 C 90 476 200 458 318 450 C 386 446 406 482 370 512 C 324 550 256 576 228 622 C 204 662 214 722 208 844';
 
+type CloudSpot = { x: number; y: number; s: number };
+
+/** Tight viewBox box ([x, y, w, h]) around CloudShapes, for a small StageLayer. */
+export function cloudBox(clouds: CloudSpot[], pad = 2): [number, number, number, number] {
+  const x0 = Math.min(...clouds.map((c) => c.x - 50 * c.s)) - pad;
+  const x1 = Math.max(...clouds.map((c) => c.x + 48 * c.s)) + pad;
+  const y0 = Math.min(...clouds.map((c) => c.y - 28 * c.s)) - pad;
+  const y1 = Math.max(...clouds.map((c) => c.y + 10 * c.s)) + pad;
+  return [x0, y0, x1 - x0, y1 - y0];
+}
+
+const CLOUDS_A: CloudSpot[] = [
+  { x: 64, y: 158, s: 0.72 },
+  { x: 214, y: 206, s: 0.4 },
+];
+const CLOUDS_B: CloudSpot[] = [{ x: 344, y: 128, s: 0.56 }];
+
 function Clouds() {
-  const level = useMotionLevel();
-  const t = useOscillator(level !== 'off', 9000);
+  const t = useOscillator(useAmbientMotion(), 9000);
   const a = useAnimatedStyle(() => ({ transform: [{ translateX: (t.value - 0.5) * 20 }] }));
   const b = useAnimatedStyle(() => ({ transform: [{ translateX: -(t.value - 0.5) * 16 }] }));
   return (
     <>
-      <StageLayer style={a}>
+      <StageLayer style={a} box={cloudBox(CLOUDS_A)}>
         <CloudShape x={64} y={158} s={0.72} opacity={0.95} />
         <CloudShape x={214} y={206} s={0.4} opacity={0.8} />
       </StageLayer>
-      <StageLayer style={b}>
+      <StageLayer style={b} box={cloudBox(CLOUDS_B)}>
         <CloudShape x={344} y={128} s={0.56} opacity={0.9} />
       </StageLayer>
     </>
@@ -45,13 +63,13 @@ function Clouds() {
 
 function Birds() {
   const level = useMotionLevel();
-  const t = usePhase(level === 'full', 16000);
+  const t = usePhase(useAmbientMotion() && level === 'full', 16000);
   const style = useAnimatedStyle(() => ({
     opacity: Math.sin(t.value * Math.PI),
     transform: [{ translateX: -60 + t.value * 380 }, { translateY: Math.sin(t.value * Math.PI * 4) * 6 }],
   }));
   return (
-    <StageLayer style={style}>
+    <StageLayer style={style} box={[36, 186, 46, 26]}>
       <G stroke="#5B6AC8" strokeWidth={2} strokeLinecap="round" fill="none">
         <Path d="M 40 196 Q 45 191 50 196 Q 55 191 60 196" />
         <Path d="M 62 208 Q 66 204 70 208 Q 74 204 78 208" />
@@ -62,21 +80,20 @@ function Birds() {
 
 function Flag() {
   const level = useMotionLevel();
-  const t = useOscillator(level === 'full', 700);
+  const t = useOscillator(useAmbientMotion() && level === 'full', 700);
   const s = useAnimatedStyle(() => ({ transform: [{ scaleX: 0.84 + t.value * 0.16 }, { skewY: `${(t.value - 0.5) * 8}deg` }] }));
   return (
-    <StageLayer style={s} pivotAt={[246, 164]}>
+    <StageLayer style={s} pivotAt={[246, 164]} box={[244, 148, 28, 20]}>
       <Path d="M 246 152 L 269 158 L 246 165 Z" fill="#F0504E" />
     </StageLayer>
   );
 }
 
 function RiverShimmer() {
-  const level = useMotionLevel();
-  const t = useOscillator(level !== 'off', 2600);
+  const t = useOscillator(useAmbientMotion(), 2600);
   const s = useAnimatedStyle(() => ({ opacity: 0.3 + t.value * 0.55, transform: [{ translateX: (t.value - 0.5) * 10 }] }));
   return (
-    <StageLayer style={s}>
+    <StageLayer style={s} box={[28, 436, 336, 330]}>
       <G stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round">
         <Path d="M 34 482 L 58 480" />
         <Path d="M 148 468 L 176 465" />
@@ -90,12 +107,13 @@ function RiverShimmer() {
   );
 }
 
-function SwayGroup({ children, pivot, phase = 0 }: { children: ReactNode; pivot: [number, number]; phase?: number }) {
+/** Sways one Tree of height `h` rooted at `pivot`, on a sheet just big enough for it. */
+function SwayGroup({ children, pivot, h, phase = 0 }: { children: ReactNode; pivot: [number, number]; h: number; phase?: number }) {
   const level = useMotionLevel();
-  const t = useOscillator(level === 'full', 2600 + phase * 500, { delay: phase * 350, rest: 0.5 });
+  const t = useOscillator(useAmbientMotion() && level === 'full', 2600 + phase * 500, { delay: phase * 350, rest: 0.5 });
   const s = useAnimatedStyle(() => ({ transform: [{ rotate: `${(t.value - 0.5) * 2.2}deg` }] }));
   return (
-    <StageLayer style={s} pivotAt={pivot}>
+    <StageLayer style={s} pivotAt={pivot} box={[pivot[0] - h * 0.4, pivot[1] - h - 2, h * 0.8, h + 6]}>
       {children}
     </StageLayer>
   );
@@ -146,18 +164,28 @@ export function WorldMapArt() {
           <Ellipse cx={330} cy={660} rx={40} ry={11} fill="#D4F2B2" />
           <Ellipse cx={100} cy={780} rx={60} ry={14} fill="#9CD483" />
         </G>
-        {/* paths */}
-        <Path d={PATH_1} stroke={SCENE.pathEdge} strokeWidth={42} strokeLinecap="round" fill="none" />
-        <Path d={PATH_1} stroke={SCENE.path} strokeWidth={34} strokeLinecap="round" fill="none" />
-        <Path d={PATH_1} stroke="#FBEBC8" strokeWidth={6} strokeLinecap="round" strokeDasharray="2 16" fill="none" opacity={0.9} />
-        <Path d={PATH_2} stroke={SCENE.pathEdge} strokeWidth={38} fill="none" />
-        <Path d={PATH_2} stroke={SCENE.path} strokeWidth={31} fill="none" />
+        {/* trail */}
+        <Path d={TRAIL} stroke={SCENE.pathEdge} strokeWidth={42} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <Path d={TRAIL} stroke={SCENE.path} strokeWidth={34} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <Path d={TRAIL} stroke="#FBEBC8" strokeWidth={6} strokeLinecap="round" strokeDasharray="2 16" fill="none" opacity={0.9} />
         {/* river */}
         <Path d={RIVER} stroke="#DDF1FD" strokeWidth={84} fill="none" />
         <Path d={RIVER} stroke="#F2E2B8" strokeWidth={76} fill="none" opacity={0.6} />
         <Path d={RIVER} stroke={g('river')} strokeWidth={64} fill="none" />
         <Path d="M 118 468 C 132 460 152 462 154 468 C 148 473 128 474 118 468 Z" fill="#F4E3B8" />
         <Path d="M 256 602 C 264 596 278 598 278 604 C 272 608 260 608 256 602 Z" fill="#F4E3B8" />
+        {/* plank bridge where the trail crosses */}
+        <G transform={`translate(${BRIDGE.x} ${BRIDGE.y}) rotate(${BRIDGE.angle - 90})`}>
+          <Rect x={-19} y={-46} width={38} height={92} rx={4} fill="#C98E5B" />
+          <Rect x={-15} y={-42} width={30} height={84} rx={2} fill="#DCA774" />
+          <G stroke="#C98E5B" strokeWidth={2}>
+            {[-30, -18, -6, 6, 18, 30].map((y) => (
+              <Path key={y} d={`M -15 ${y} L 15 ${y}`} />
+            ))}
+          </G>
+          <Rect x={-22} y={-40} width={5} height={80} rx={2.5} fill="#A8703F" />
+          <Rect x={17} y={-40} width={5} height={80} rx={2.5} fill="#A8703F" />
+        </G>
         {/* top-left forest */}
         <Tree x={18} y={326} h={104} />
         <Tree x={48} y={320} h={81} tone="light" />
@@ -173,7 +201,7 @@ export function WorldMapArt() {
         <House x={110} y={392} s={1.22} />
         <RoundTree x={56} y={400} r={17} />
         <RoundTree x={168} y={404} r={14} tone="light" />
-        <Bush x={196} y={414} s={0.91} tone="deep" />
+        <Bush x={252} y={410} s={0.91} tone="deep" />
         {/* river-bank building */}
         <G transform="translate(290 522) scale(1.25) translate(-290 -522)">
           <Rect x={284} y={482} width={42} height={40} rx={2} fill="#F06660" />
@@ -216,11 +244,12 @@ export function WorldMapArt() {
           <Circle cx={340} cy={640} r={2} fill="#FFB3C2" />
         </G>
       </StageLayer>
-      <SwayGroup pivot={[216, 530]} phase={1}>
-        <Tree x={216} y={530} h={109} />
+      {/* west of the bridge so the trail stays in view */}
+      <SwayGroup pivot={[150, 554]} h={109} phase={1}>
+        <Tree x={150} y={554} h={109} />
       </SwayGroup>
-      <SwayGroup pivot={[182, 544]} phase={2}>
-        <Tree x={182} y={544} h={73} tone="light" />
+      <SwayGroup pivot={[112, 566]} h={73} phase={2}>
+        <Tree x={112} y={566} h={73} tone="light" />
       </SwayGroup>
       <RiverShimmer />
       <Flag />

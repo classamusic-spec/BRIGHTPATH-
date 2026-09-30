@@ -40,7 +40,7 @@ export default function Learners() {
                   router.push({ pathname: '/coach/learner/[id]', params: { id: l.id } });
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12 }}
-                accessibilityLabel={`${l.fullName ?? l.displayName}${reviews(l.id) ? `, ${reviews(l.id)} goals to review` : ''}`}
+                accessibilityLabel={`${l.fullName ?? l.displayName}${reviews(l.id) ? `, ${reviews(l.id)} goal${reviews(l.id) === 1 ? '' : 's'} to review` : ''}`}
               >
                 <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#E5F0FD', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                   <BuddyPortrait id={l.buddy} size={60} motion="off" />

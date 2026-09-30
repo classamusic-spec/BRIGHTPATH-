@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import Svg, { Ellipse, Path, Rect } from 'react-native-svg';
 
 import { Fox } from '@/components/characters/fox/Fox';
@@ -59,8 +59,13 @@ export function StepFirstThen({ step, next }: StepProps<Extract<MissionStep, { t
   const [firstDone, setFirstDone] = useState(false);
   const arrow = useSharedValue(0);
   useEffect(() => {
-    if (level === 'off') return;
+    if (level === 'off') {
+      cancelAnimation(arrow);
+      arrow.value = 0;
+      return;
+    }
     arrow.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(arrow);
   }, [level, arrow]);
   const arrowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: arrow.value * 6 }] }));
 

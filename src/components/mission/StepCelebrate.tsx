@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,8 +41,11 @@ export function StepSuccess({ step, next }: StepProps<Extract<MissionStep, { typ
     speak(`${step.title} ${step.message}`);
   }, [step.title, step.message]);
   const spots = celebration === 'minimal' ? [] : celebration === 'gentle' ? STAR_SPOTS.slice(0, 4) : STAR_SPOTS;
+  // The bushes stand just above the title block, so they never meet its glyphs on short phones.
+  const [frame, setFrame] = useState({ h: 0, textTop: 0 });
+  const bushBase = frame.h && frame.textTop ? Math.min(0.6, (frame.textTop - 4) / frame.h) : 0.6;
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }} onLayout={(e) => setFrame((f) => ({ ...f, h: e.nativeEvent.layout.height }))}>
       <Landscape
         style={StyleSheet.absoluteFill}
         spec={{
@@ -51,8 +54,8 @@ export function StepSuccess({ step, next }: StepProps<Extract<MissionStep, { typ
           horizon: 0.98,
           ground: 0.99,
           bushes: [
-            { x: 0.0, base: 0.6, s: 1.6, tone: 'light' },
-            { x: 1.0, base: 0.62, s: 1.5, tone: 'light' },
+            { x: 0.0, base: bushBase, s: 1.6, tone: 'light' },
+            { x: 1.0, base: bushBase, s: 1.5, tone: 'light' },
           ],
         }}
       />
@@ -69,22 +72,24 @@ export function StepSuccess({ step, next }: StepProps<Extract<MissionStep, { typ
           </>
         )}
       </FitBox>
-      <Appear style={{ paddingHorizontal: GUTTER + 4, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
-        <Txt v="display" center accessibilityRole="header" style={{ fontSize: 46, lineHeight: 52 }}>
-          {step.title}
-        </Txt>
-        <ReadAloudButton text={`${step.title} ${step.message}`} style={styles.successRead} />
-        <Txt v="bodyLg" center color={colors.text} style={{ fontSize: 24, lineHeight: 31, marginTop: 6, marginBottom: 20 }}>
-          {step.message.replace(' and ', '\nand ')}
-        </Txt>
-        <Button title={step.cta} onPress={next} />
-        <View style={styles.tip}>
-          <Icon name="sprout" size={56} />
-          <Txt v="bodyLg" color={colors.text} style={{ fontSize: 21, lineHeight: 27, flexShrink: 1 }}>
-            {step.tip.replace(' a big', '\na big')}
+      <View onLayout={(e) => setFrame((f) => ({ ...f, textTop: e.nativeEvent.layout.y }))}>
+        <Appear style={{ paddingHorizontal: GUTTER + 4, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
+          <Txt v="display" center accessibilityRole="header" style={{ fontSize: 46, lineHeight: 52 }}>
+            {step.title}
           </Txt>
-        </View>
-      </Appear>
+          <ReadAloudButton text={`${step.title} ${step.message}`} style={styles.successRead} />
+          <Txt v="bodyLg" center color={colors.text} style={{ fontSize: 24, lineHeight: 31, marginTop: 6, marginBottom: 20 }}>
+            {step.message.replace(' and ', '\nand ')}
+          </Txt>
+          <Button title={step.cta} onPress={next} />
+          <View style={styles.tip}>
+            <Icon name="sprout" size={56} />
+            <Txt v="bodyLg" color={colors.text} style={{ fontSize: 21, lineHeight: 27, flexShrink: 1 }}>
+              {step.tip.replace(' a big', '\na big')}
+            </Txt>
+          </View>
+        </Appear>
+      </View>
     </View>
   );
 }
@@ -223,7 +228,9 @@ export function StepComplete({ step, next, mission }: StepProps<Extract<MissionS
     done.current = true;
     playSound('chime', 0.6);
     successHaptic();
-    setAwarded(finishMission(runId));
+    // A second visit (Back, then forward again) gets { stars: 0 }; keep what this run was actually given.
+    const result = finishMission(runId);
+    if (result.stars > 0 || !useMission.getState().awarded) setAwarded(result);
     speak(`${step.title} ${step.message}`);
   }, [finishMission, setAwarded, runId, step.title, step.message]);
   return (

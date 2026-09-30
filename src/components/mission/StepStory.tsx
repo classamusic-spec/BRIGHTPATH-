@@ -36,8 +36,6 @@ export function StepScenario({ step, next }: StepProps<Extract<MissionStep, { ty
   useEffect(() => {
     speak(step.text);
   }, [step.text]);
-  // `mood` is threaded through StoryScene by the scenery workstream; spread so older scene typings still compile.
-  const moodProps = step.mood ? ({ mood: step.mood } as object) : {};
   const [wrap, setWrap] = useState({ w: 0, h: 0 });
   const sceneBottom = Math.max(0, Math.round(cardSpace * 0.55));
   // Fill the frame (slice, bottom-aligned) but cap the zoom so the character
@@ -62,7 +60,7 @@ export function StepScenario({ step, next }: StepProps<Extract<MissionStep, { ty
       </View>
       <View style={[styles.sceneWrap, { backgroundColor: SCENE_FLOOR[step.scene] }]} onLayout={(e) => setWrap({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         <View style={[styles.sceneFill, { bottom: sceneBottom, backgroundColor: SCENE_TOP[step.scene] }]}>
-          {sceneH > 0 ? <StoryScene scene={step.scene} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: sceneH }} {...moodProps} /> : null}
+          {sceneH > 0 ? <StoryScene scene={step.scene} style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: sceneH }} mood={step.mood} /> : null}
         </View>
         <View onLayout={(e) => setCardSpace(e.nativeEvent.layout.height)} style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
           <Appear style={styles.textCard}>

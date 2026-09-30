@@ -10,25 +10,25 @@ import { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'reac
 
 import { Pip } from '@/components/characters/Buddies';
 import { Fox, type FoxPose } from '@/components/characters/fox/Fox';
-import { Aiden } from '@/components/characters/People';
+import { Aiden, type AidenMood } from '@/components/characters/People';
 import { useOscillator } from '@/components/characters/anim';
-import type { SceneId } from '@/content/types';
-import { useMotionLevel } from '@/lib/motion';
+import type { SceneId, StoryMood } from '@/content/types';
+import { useAmbientMotion } from '@/lib/motion';
 import { useUid } from '@/lib/uid';
 
 import { Bench, Bush, CloudShape, House, Mountain, SCENE, SunDisk, SunRays, Tree, Tuft } from './elements';
 import { Stage, StageLayer, StageNode } from './Stage';
+import { cloudBox } from './WorldMap';
 
 /* ------------------------------------------------------------------ */
 /* Shared animated bits                                                */
 /* ------------------------------------------------------------------ */
 
 function DriftClouds({ clouds }: { clouds: { x: number; y: number; s: number }[] }) {
-  const level = useMotionLevel();
-  const t = useOscillator(level !== 'off', 8000);
+  const t = useOscillator(useAmbientMotion(), 8000);
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: (t.value - 0.5) * 14 }] }));
   return (
-    <StageLayer style={style}>
+    <StageLayer style={style} box={cloudBox(clouds)}>
       {clouds.map((c, i) => (
         <CloudShape key={i} x={c.x} y={c.y} s={c.s} />
       ))}
@@ -37,12 +37,12 @@ function DriftClouds({ clouds }: { clouds: { x: number; y: number; s: number }[]
 }
 
 function SpinSun({ cx, cy, r }: { cx: number; cy: number; r: number }) {
-  const level = useMotionLevel();
-  const t = useOscillator(level !== 'off', 3000);
+  const t = useOscillator(useAmbientMotion(), 3000);
   const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${t.value * 18}deg` }, { scale: 0.95 + t.value * 0.08 }] }));
+  const e = r * 2.2;
   return (
     <>
-      <StageLayer style={style} pivotAt={[cx, cy]}>
+      <StageLayer style={style} pivotAt={[cx, cy]} box={[cx - e, cy - e, e * 2, e * 2]}>
         <SunRays cx={cx} cy={cy} r={r} count={10} len={0.45} width={0.13} />
       </StageLayer>
       <StageLayer>
@@ -67,10 +67,22 @@ function SkyDefs({ id, top = SCENE.skyTop, bottom = SCENE.skyBottom }: { id: str
 /* Playroom — Pip and the fallen tower (06)                           */
 /* ------------------------------------------------------------------ */
 
-export function PlayroomScene({ style, mood = 'frustrated' }: { style?: StyleProp<ViewStyle>; mood?: 'frustrated' | 'happy' }) {
+/**
+ * The playroom draws past its viewBox (wall decor up to y=-220, floor down to
+ * vbH+200) and lets it bleed, so a frame taller or wider than the zoom cap
+ * shows more room rather than a bare wall or a hard floor edge. Callers clip
+ * it with their own container.
+ */
+export function PlayroomScene({ style, mood = 'frustrated' }: { style?: StyleProp<ViewStyle>; mood?: StoryMood }) {
   const u = useUid('pr');
   return (
-    <Stage vbW={390} vbH={380} fit="slice" align="bottom" style={style}>
+    <Stage vbW={390} vbH={380} fit="slice" align="bottom" style={[style, { overflow: 'visible' }]}>
+      <StageLayer box={[-200, -220, 790, 800]}>
+        <Rect x={-200} y={-220} width={790} height={230} fill="#DCE4F8" />
+        <Rect x={-200} y={220} width={790} height={360} fill="#F4D3B4" />
+        <Rect x={-200} y={214} width={790} height={10} fill="#F6DCC1" />
+        <PlayroomWindow />
+      </StageLayer>
       <StageLayer>
         <Defs>
           <LinearGradient id={`${u}w`} x1="0" y1="0" x2="0" y2="1">
@@ -127,11 +139,48 @@ export function PlayroomScene({ style, mood = 'frustrated' }: { style?: StylePro
   );
 }
 
+/** Window with sky and bunting on the playroom wall above the authored frame (y -220…0). */
+function PlayroomWindow() {
+  const flags = ['#F7839C', '#F7C23C', '#6AA3F6', '#4CC478', '#B690FA'];
+  // Two strings of bunting sag from the upper corners towards the window.
+  const strings: [number, number, number, number][] = [
+    [-60, -168, 112, -118],
+    [278, -118, 450, -168],
+  ];
+  return (
+    <G>
+      <G transform="translate(0 16)">
+        <Rect x={124} y={-146} width={142} height={124} rx={10} fill="#FFFFFF" />
+        <Rect x={133} y={-137} width={124} height={106} rx={5} fill="#BFE3FB" />
+        <Circle cx={228} cy={-112} r={12} fill="#FDC53A" />
+        <CloudShape x={168} y={-100} s={0.46} />
+        <Path d="M 133 -56 C 162 -70 200 -68 257 -52 L 257 -31 L 133 -31 Z" fill="#8CCB7A" />
+        <Path d="M 195 -137 L 195 -31 M 133 -84 L 257 -84" stroke="#FFFFFF" strokeWidth={5} />
+        <Rect x={114} y={-26} width={162} height={10} rx={4} fill="#EFC79E" />
+      </G>
+      {strings.map(([x1, y1, x2, y2], k) => {
+        const mx = (x1 + x2) / 2;
+        const my = Math.max(y1, y2) + 26;
+        const at = (t: number): [number, number] => [(1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t ** 2 * x2, (1 - t) ** 2 * y1 + 2 * (1 - t) * t * my + t ** 2 * y2];
+        return (
+          <G key={k}>
+            <Path d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`} stroke="#9AA8D8" strokeWidth={2} fill="none" />
+            {[0.14, 0.3, 0.46, 0.62, 0.78, 0.94].map((t, i) => {
+              const [x, y] = at(t);
+              return <Path key={i} d={`M ${x - 10} ${y} L ${x + 10} ${y} L ${x} ${y + 20} Z`} fill={flags[(i + k * 2) % flags.length]} />;
+            })}
+          </G>
+        );
+      })}
+    </G>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Bedroom — Aiden's story (13)                                       */
 /* ------------------------------------------------------------------ */
 
-export function BedroomScene({ style }: { style?: StyleProp<ViewStyle> }) {
+export function BedroomScene({ style, mood = 'frustrated' }: { style?: StyleProp<ViewStyle>; mood?: AidenMood }) {
   const u = useUid('br');
   return (
     <Stage vbW={390} vbH={360} fit="slice" align="bottom" style={style}>
@@ -179,15 +228,15 @@ export function BedroomScene({ style }: { style?: StyleProp<ViewStyle> }) {
           <Rect x={282} y={232} width={52} height={16} rx={6} fill="#5CD3A6" />
           <Rect x={276} y={266} width={64} height={34} rx={10} fill="#4A82EA" />
         </G>
-        {/* soccer ball */}
-        <G>
+        {/* soccer ball, moved in so it stays whole when the story frame crops the sides */}
+        <G transform="translate(80 306) scale(0.86) translate(-46 -300)">
           <Circle cx={46} cy={300} r={38} fill="#FFFFFF" stroke="#D5DBE8" strokeWidth={2} />
           <Path d="M 46 284 L 60 294 L 55 311 L 37 311 L 32 294 Z" fill="#1C2860" />
           <Path d="M 46 262 L 46 272 M 80 290 L 72 294 M 70 330 L 62 322 M 22 330 L 30 322 M 12 290 L 20 294" stroke="#1C2860" strokeWidth={7} strokeLinecap="round" />
         </G>
       </StageLayer>
       <StageNode x={170} y={338} w={230} h={253} anchor="bottom">
-        {({ height }) => <Aiden size={height} />}
+        {({ height }) => <Aiden size={height} mood={mood} />}
       </StageNode>
     </Stage>
   );
@@ -226,7 +275,8 @@ export function HouseScene({ style, compact = false }: { style?: StyleProp<ViewS
         <Bush x={250} y={vbH - 36} s={0.7} tone="deep" />
         <Bush x={150} y={vbH - 34} s={0.6} />
       </StageLayer>
-      <DriftClouds clouds={[{ x: 70, y: 30, s: 0.6 }, { x: 330, y: 22, s: 0.5 }]} />
+      {/* kept inboard so the header's back and tools buttons never sit on a cloud */}
+      <DriftClouds clouds={[{ x: 130, y: 64, s: 0.55 }, { x: 262, y: 50, s: 0.45 }]} />
       <StageLayer>
         <Tree x={40} y={vbH - 30} h={96} />
         <Tree x={96} y={vbH - 38} h={70} tone="light" />
@@ -257,7 +307,7 @@ export function ParkScene({ style, pose = 'walk' }: { style?: StyleProp<ViewStyl
       <SpinSun cx={286} cy={40} r={20} />
       <DriftClouds clouds={[{ x: 110, y: 34, s: 0.55 }, { x: 340, y: 80, s: 0.4 }]} />
       <StageNode x={170} y={226} w={200} h={200} anchor="bottom">
-        {({ height }) => <Fox pose={pose} size={height} />}
+        {({ height }) => <Fox pose={pose} size={height} stepping={false} decorative interactive={false} />}
       </StageNode>
     </Stage>
   );
@@ -293,7 +343,7 @@ export function ShelfScene({ style }: { style?: StyleProp<ViewStyle> }) {
 }
 
 /** Tricky puzzle — Help Hero round 2. */
-export function PuzzleScene({ style }: { style?: StyleProp<ViewStyle> }) {
+export function PuzzleScene({ style, mood = 'frustrated' }: { style?: StyleProp<ViewStyle>; mood?: StoryMood }) {
   return (
     <Stage vbW={390} vbH={380} fit="slice" align="bottom" style={style}>
       <StageLayer>
@@ -303,7 +353,7 @@ export function PuzzleScene({ style }: { style?: StyleProp<ViewStyle> }) {
         <Path d="M 70 56 L 70 80 L 88 90" stroke="#9AA8D8" strokeWidth={4} strokeLinecap="round" fill="none" />
       </StageLayer>
       <StageNode x={195} y={300} w={220} h={220} anchor="bottom">
-        {({ width }) => <Pip size={width} mood="frustrated" />}
+        {({ width }) => <Pip size={width} mood={mood} />}
       </StageNode>
       <StageLayer>
         <Rect x={40} y={290} width={310} height={70} rx={12} fill="#E7BA8C" />
@@ -375,20 +425,23 @@ export const SCENE_TOP: Record<SceneId, string> = {
   kitchen: '#DCE4F8',
 };
 
-export function StoryScene({ scene, style }: { scene: SceneId; style?: StyleProp<ViewStyle> }): ReactNode {
+const AIDEN_MOOD: Record<StoryMood, AidenMood> = { frustrated: 'frustrated', hopeful: 'calm', happy: 'happy' };
+
+/** A story scene; `mood` is the story character's feeling at this beat (Pip or Aiden). */
+export function StoryScene({ scene, style, mood }: { scene: SceneId; style?: StyleProp<ViewStyle>; mood?: StoryMood }): ReactNode {
   switch (scene) {
     case 'bedroom':
-      return <BedroomScene style={style} />;
+      return <BedroomScene style={style} mood={mood ? AIDEN_MOOD[mood] : undefined} />;
     case 'shelf':
       return <ShelfScene style={style} />;
     case 'puzzle':
-      return <PuzzleScene style={style} />;
+      return <PuzzleScene style={style} mood={mood} />;
     case 'playground':
       return <PlaygroundScene style={style} />;
     case 'house':
       return <HouseScene style={style} />;
     case 'playroom':
     default:
-      return <PlayroomScene style={style} />;
+      return <PlayroomScene style={style} mood={mood} />;
   }
 }

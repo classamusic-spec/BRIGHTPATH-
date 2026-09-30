@@ -1,17 +1,32 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 
 import { Icon } from '@/components/icons/Icon';
 import { MyToolsButton } from '@/components/kid/MyTools';
 import { Appear, Card, Header, IconTile, Screen, Txt } from '@/components/ui';
+import { ReadAloudButton } from '@/components/ui/ReadAloudButton';
 import { QUESTS } from '@/content/quests';
 import { speak } from '@/lib/speech';
 import { colors } from '@/theme';
 
 /** 05 · Select Quest */
 export default function ChooseQuest() {
+  // Opened as a Home tab (which replaced Home): the back arrow returns Home.
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   return (
-    <Screen header={<Header title="Choose a Quest" subtitle="What would you like to work on?" right={<MyToolsButton />} />}>
+    <Screen
+      header={
+        <View>
+          <Header title="Choose a Quest" onBack={tab ? () => router.replace('/kid/home') : undefined} right={<MyToolsButton />} style={{ paddingBottom: 0 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 20, paddingBottom: 8 }}>
+            <Txt v="bodyLg" color={colors.textSoft} style={{ fontSize: 18.5, lineHeight: 25, flexShrink: 1 }}>
+              What would you like to work on?
+            </Txt>
+            <ReadAloudButton text={`Choose a quest. What would you like to work on? ${QUESTS.map((q) => `${q.title}. ${q.sub}.`).join(' ')}`} style={{ width: 40, height: 40 }} />
+          </View>
+        </View>
+      }
+    >
       <View style={{ gap: 14, paddingTop: 10 }}>
         {QUESTS.map((q, i) => (
           <Appear key={q.id} delay={70 * i}>

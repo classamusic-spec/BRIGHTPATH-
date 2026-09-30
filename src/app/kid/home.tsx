@@ -11,7 +11,7 @@ import { MapNode, WORLD_PINS, WORLD_VB, WorldMap } from '@/components/scenery/Wo
 import { BottomNav, Tap, Txt } from '@/components/ui';
 import { useMotionLevel } from '@/lib/motion';
 import { playSound } from '@/lib/sound';
-import { useLearner } from '@/store';
+import { useApp, useLearner } from '@/store';
 import { useTodayMission } from '@/store/derived';
 import { colors, shadows } from '@/theme';
 
@@ -74,6 +74,8 @@ export default function Home() {
   const insets = useSafeAreaInsets();
   const learner = useLearner();
   const today = useTodayMission(learner.id);
+  // Set by the check-in when the child asked for a slower day.
+  const gentle = useApp((s) => !!s.session.gentle);
   const [tools, setTools] = useState(false);
   const [screen, setScreen] = useState<{ w: number; h: number } | null>(null);
   const [headerBottom, setHeaderBottom] = useState(0);
@@ -96,7 +98,7 @@ export default function Home() {
             {`Hi ${learner.displayName}!`}
           </Txt>
           <Txt v="bodySm" color={colors.textSoft} style={{ fontSize: 15 }}>
-            Small steps. Big progress.
+            {gentle ? 'We can go nice and slow today.' : 'Small steps. Big progress.'}
           </Txt>
         </View>
         <Tap onPress={() => router.push('/gate')} accessibilityLabel="Grown-ups: settings" style={styles.gear} hitSlop={10}>

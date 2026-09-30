@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { BUDDIES, BuddyPortrait } from '@/components/kid/Buddy';
 import { Appear, Button, CheckBadge, Header, Screen, Tap, Txt } from '@/components/ui';
+import { ReadAloudButton } from '@/components/ui/ReadAloudButton';
 import { GUIDE } from '@/content/cast';
 import type { BuddyId } from '@/engine/types';
 import { playSound } from '@/lib/sound';
@@ -19,7 +20,7 @@ export default function ChooseBuddy() {
 
   return (
     <Screen
-      header={<Header title="Choose Your Buddy" subtitle="Pick a friend to explore with!" />}
+      header={<Header title="Choose Your Buddy" subtitle="Pick a friend to explore with!" right={<ReadAloudButton text={`Choose your buddy. Pick a friend to explore with! ${BUDDIES.map((b) => b.name).join(', ')}.`} />} />}
       contentStyle={{ paddingTop: 18 }}
       footer={
         <Button
@@ -31,7 +32,7 @@ export default function ChooseBuddy() {
         />
       }
     >
-      <View style={styles.grid}>
+      <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="Choose your buddy">
         {BUDDIES.map((b, i) => {
           const on = b.id === picked;
           return (
@@ -43,7 +44,7 @@ export default function ChooseBuddy() {
                   speak(`${b.name}. ${b.line}`);
                 }}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: on }}
+                accessibilityState={{ checked: on }}
                 accessibilityLabel={`${b.name}. ${b.line}`}
                 scale={0.95}
               >

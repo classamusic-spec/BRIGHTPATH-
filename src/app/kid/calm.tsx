@@ -257,7 +257,7 @@ function FocusModule() {
       </Txt>
       <View style={styles.sky} onLayout={(e) => setSky({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         {sky
-          ? FIREFLY_SPOTS.map(([px, py], i) => <Firefly key={i} x={(px / 100) * sky.w} y={Math.max((py / 100) * sky.h, FIREFLY)} delay={i * 350} onCatch={() => setCaught((c) => c + 1)} />)
+          ? FIREFLY_SPOTS.map(([px, py], i) => <Firefly key={i} x={(px / 100) * sky.w} y={Math.max((py / 100) * sky.h, FIREFLY + 14)} delay={i * 350} onCatch={() => setCaught((c) => c + 1)} />)
           : null}
       </View>
       <Txt v="caption" center color={colors.textMuted}>

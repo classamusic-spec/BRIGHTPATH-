@@ -25,7 +25,7 @@ export default function Splash() {
         </Appear>
         <FitBox style={styles.hero} aspect={0.86} max={390} min={220}>
           {(size) => (
-            <Fox pose="wave" size={size} onPress={() => speak(`Hi! I’m ${GUIDE.name}. Let’s play, practice and feel good together!`)} accessibilityLabel={`${GUIDE.name} the fox waving hello. Tap to say hi.`} />
+            <Fox pose="wave" size={size} onPress={() => speak(`Hi! I’m ${GUIDE.name}. Let’s play, practice and feel good together!`, { force: true })} accessibilityLabel={`${GUIDE.name} the fox waving hello. Tap to say hi.`} />
           )}
         </FitBox>
         <Appear delay={250}>

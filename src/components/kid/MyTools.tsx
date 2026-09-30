@@ -127,7 +127,7 @@ export function MyToolsSheet({ visible, onClose }: { visible: boolean; onClose: 
               scale={0.94}
             >
               <Icon name={t.icon} size={40} />
-              <Txt v="subheading" color={colors.ink} style={{ marginTop: 6, fontSize: 17 }} center numberOfLines={1} adjustsFontSizeToFit>
+              <Txt v="subheading" color={colors.ink} style={{ marginTop: 6, fontSize: 17, lineHeight: 21 }} center numberOfLines={2}>
                 {t.label}
               </Txt>
               <Txt v="caption" color={colors.textSoft} center numberOfLines={2}>

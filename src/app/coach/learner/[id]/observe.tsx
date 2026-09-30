@@ -36,7 +36,8 @@ function ObservationEntry({ learner }: { learner: Learner }) {
   const [valence, setValence] = useState<Valence>('positive');
   const [text, setText] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
-  const [goalId, setGoalId] = useState<string>(goalParam ?? 'none');
+  // A stale or inactive goal link falls back to General so one chip is always selected.
+  const [goalId, setGoalId] = useState<string>(() => (goalParam && goals.some((g) => g.id === goalParam) ? goalParam : 'none'));
   const [setting, setSetting] = useState<Setting>('home');
   const [support, setSupport] = useState<SupportLevel>(1);
   const [outcome, setOutcome] = useState<Outcome | null>(null);

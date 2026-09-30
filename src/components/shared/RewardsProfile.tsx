@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { Fox } from '@/components/characters/fox/Fox';
@@ -21,14 +22,22 @@ export function RewardsProfile({
   onStars,
   onInterests,
   onStrengths,
+  title = 'Rewards / Profile',
+  headerRight,
+  onBack,
 }: {
   learner: Learner;
   rewards: Rewards;
   onEdit: () => void;
   onSettings: () => void;
   onStars: () => void;
-  onInterests: () => void;
-  onStrengths: () => void;
+  /** Without a handler the row is read-only: no chevron and no press. */
+  onInterests?: () => void;
+  onStrengths?: () => void;
+  title?: string;
+  /** Extra header controls, shown before the settings gear. */
+  headerRight?: ReactNode;
+  onBack?: () => void;
 }) {
   const badges = rewards.badges.slice(-3);
   const interests = learner.interests.map(interestLabel).join(', ').toLowerCase();
@@ -36,11 +45,15 @@ export function RewardsProfile({
     <Screen
       header={
         <Header
-          title="Rewards / Profile"
+          title={title}
+          onBack={onBack}
           right={
-            <Tap onPress={onSettings} accessibilityLabel="Settings (grown-ups)" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="gear" size={34} color="#1F6EF0" />
-            </Tap>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {headerRight}
+              <Tap onPress={onSettings} accessibilityLabel="Settings (grown-ups)" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="gear" size={34} color="#1F6EF0" />
+              </Tap>
+            </View>
           }
         />
       }
