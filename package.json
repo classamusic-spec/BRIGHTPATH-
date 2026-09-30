@@ -11,6 +11,7 @@
     "expo-constants": "~57.0.20",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
+    "expo-image-manipulator": "~57.0.20",
     "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.24",
@@ -46,7 +47,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "talk:symbols": "node scripts/build-talk-symbols.mjs"
   },
   "private": true,
   "jest": {

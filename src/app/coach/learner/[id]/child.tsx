@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { withRouteLearner } from '@/components/coach/Kit';
 import { ChoiceChips, SectionTitle, TextField } from '@/components/coach/Form';
 import { BUDDIES } from '@/components/kid/Buddy';
-import { Button, Card, Header, Screen, Toggle, Txt } from '@/components/ui';
+import { TalkPicture } from '@/components/talk/TalkPicture';
+import { Button, Card, Header, ListRow, Screen, Toggle, Txt } from '@/components/ui';
 import { BANDS } from '@/engine/bands';
 import type { AccessProfile, BuddyId, Learner, Modality, PresentationBand } from '@/engine/types';
 import { useApp } from '@/store';
@@ -136,6 +137,14 @@ function ChildProfile({ learner }: { learner: Learner }) {
           value={a.communication}
           onChange={(v) => updateAccess(learner.id, { communication: v as Modality[] })}
         />
+        <Card>
+          <ListRow
+            iconNode={<TalkPicture symbol="speech-balloon" size={40} />}
+            title="Talk Board"
+            subtitle="Picture words, own photos and voice"
+            onPress={() => router.push({ pathname: '/coach/learner/[id]/talk', params: { id: learner.id } })}
+          />
+        </Card>
 
         <SectionTitle>Presentation</SectionTitle>
         <ChoiceChips

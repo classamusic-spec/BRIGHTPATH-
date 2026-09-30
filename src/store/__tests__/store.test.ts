@@ -4,6 +4,7 @@ import type { Learner } from '@/engine/types';
 
 import { DEFAULT_ACCESS } from '../defaults';
 import { migrateStore, STORE_VERSION } from '../migrations';
+import { MAX_RECENTS } from '../talk';
 
 type Store = typeof import('../index');
 type Storage = { getItem: jest.Mock; setItem: jest.Mock; removeItem: jest.Mock };
@@ -164,6 +165,43 @@ describe('store actions', () => {
       app.getState().recordObservation({ learnerId, goalId, skillArea: 'communication', source: 'app', context: { setting: 'app' }, supportLevel: 2, outcome: 'independent', at: new Date(t0 + i * 60000).toISOString() });
     }
     expect(app.getState().goals.find((g) => g.id === goalId)?.spaced.index).toBe(1);
+  });
+
+  it('keeps Talk settings, own words and recent words per learner', async () => {
+    const app = await ready();
+    const id = app.getState().activeLearnerId;
+    const talk = () => app.getState().talk[id];
+    app.getState().updateTalk(id, { columns: 3, speakOnTap: false });
+    expect(talk()).toMatchObject({ columns: 3, speakOnTap: false, showWords: true });
+    for (const c of ['snacks.cookie', 'core.want']) app.getState().noteTalkUse(id, c);
+    expect(talk().recents.slice(0, 2)).toEqual(['core.want', 'snacks.cookie']);
+    const cardId = app.getState().addTalkCard(id, { label: 'Grandma', say: 'Grandma', cls: 'people', symbol: 'old-woman' });
+    expect(cardId).toMatch(/^mine\./);
+    app.getState().noteTalkUse(id, cardId!);
+    app.getState().removeTalkCard(id, cardId!);
+    expect(talk().custom.some((c) => c.id === cardId)).toBe(false);
+    expect(talk().recents).not.toContain(cardId);
+    app.getState().updateTalk(id, { keepRecents: false });
+    expect(talk().recents).toEqual([]);
+    app.getState().noteTalkUse(id, 'core.more');
+    expect(talk().recents).toEqual([]);
+  });
+
+  it('caps recent words, exports Talk data and deletes it with everything else', async () => {
+    const app = await ready();
+    const id = app.getState().activeLearnerId;
+    for (let i = 0; i < 20; i += 1) app.getState().noteTalkUse(id, `core.word-${i}`);
+    expect(app.getState().talk[id].recents).toHaveLength(MAX_RECENTS);
+    expect(JSON.parse(app.getState().exportData()).talk[id].recents).toHaveLength(MAX_RECENTS);
+    app.getState().deleteAllData();
+    expect(app.getState().talk).toEqual({});
+  });
+
+  it('never records Talk board use as evidence', async () => {
+    const app = await ready();
+    const before = app.getState().observations.length;
+    app.getState().noteTalkUse(app.getState().activeLearnerId, 'quick.help-me');
+    expect(app.getState().observations).toHaveLength(before);
   });
 
   it('defaults photo consent to off for a fresh start', async () => {

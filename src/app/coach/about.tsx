@@ -50,6 +50,12 @@ export default function About() {
           Missions are “Pilot ready”: professional, agency, editorial and user review are still required before any approved release or effectiveness claim.
         </Txt>
       </Card>
+      <Card style={{ padding: 16, marginTop: 12 }}>
+        <Txt v="subheading">Credits</Txt>
+        <Txt v="body" color={colors.textSoft} style={{ marginTop: 4 }}>
+          Talk board pictures are Fluent Emoji by Microsoft, used under the MIT License. The Talk board voice is the device’s own text-to-speech.
+        </Txt>
+      </Card>
     </Screen>
   );
 }

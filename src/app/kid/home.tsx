@@ -8,12 +8,13 @@ import { Icon, type IconName } from '@/components/icons/Icon';
 import { BuddyPortrait } from '@/components/kid/Buddy';
 import { MyToolsSheet } from '@/components/kid/MyTools';
 import { MapNode, WORLD_PINS, WORLD_VB, WorldMap } from '@/components/scenery/WorldMap';
+import { TalkPicture } from '@/components/talk/TalkPicture';
 import { BottomNav, Tap, Txt } from '@/components/ui';
 import { useMotionLevel } from '@/lib/motion';
 import { playSound } from '@/lib/sound';
 import { useApp, useLearner } from '@/store';
 import { useTodayMission } from '@/store/derived';
-import { colors, shadows } from '@/theme';
+import { colors, fonts, shadows } from '@/theme';
 
 function MapPill({ icon, label, onPress, delay = 0 }: { icon: IconName; label: string; onPress: () => void; delay?: number }) {
   const level = useMotionLevel();
@@ -129,6 +130,21 @@ export default function Home() {
         </MapNode>
       </WorldMap>
 
+      {screen && navTop ? (
+        <Tap
+          onPress={() => router.push('/kid/talk')}
+          style={[styles.talk, { bottom: screen.h - navTop + 14 }]}
+          accessibilityLabel="Talk"
+          accessibilityHint="Pictures for everything you want to say"
+          scale={0.92}
+        >
+          <TalkPicture symbol="speech-balloon" size={36} />
+          <Txt v="label" color={colors.ink} style={styles.talkText}>
+            Talk
+          </Txt>
+        </Tap>
+      ) : null}
+
       <View style={styles.nav} onLayout={(e) => setNavTop(e.nativeEvent.layout.y)}>
         <BottomNav
           active="home"
@@ -153,6 +169,22 @@ const styles = StyleSheet.create({
   avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...shadows.soft },
   gear: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   nav: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 1 },
+  // The Talk board is one tap from the map (and in My Tools on every screen).
+  talk: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 1,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 3,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.raised,
+  },
+  talkText: { fontFamily: fonts.black, fontSize: 15, lineHeight: 18, marginTop: -1 },
   pinWrap: { position: 'absolute', left: -200, width: 400, top: -30, height: 60, alignItems: 'center', justifyContent: 'center' },
   pill: {
     flexDirection: 'row',

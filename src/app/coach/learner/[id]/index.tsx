@@ -25,6 +25,7 @@ const BAR_COLORS: Record<string, string> = { communication: colors.mint, emotion
 
 const MENU: { label: string; icon: IconName; path: string }[] = [
   { label: 'Access Profile', icon: 'shield', path: '/coach/learner/[id]/access' },
+  { label: 'Talk Board', icon: 'chat', path: '/coach/learner/[id]/talk' },
   { label: 'Interests', icon: 'palette', path: '/coach/learner/[id]/interests' },
   { label: 'Team & Sharing', icon: 'people', path: '/coach/learner/[id]/team' },
   { label: 'Weekly Summary', icon: 'bars', path: '/coach/learner/[id]/weekly' },

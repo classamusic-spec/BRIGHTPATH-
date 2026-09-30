@@ -117,6 +117,7 @@ export default function DataPrivacy() {
           'We ask for a display name and age band — never a legal name, birthday, school or location.',
           'No ads, no child social network, no child chat, and no public comparison.',
           'Photos are optional, stay on device, and we recommend avoiding faces. Voice is never recorded.',
+          'What a child says on the Talk board is spoken aloud and never sent anywhere or used as evidence. Recent words are kept on this device only, and you can turn that off.',
           'AI is optional and never used to diagnose, infer emotion from camera or voice, or talk to children.',
         ].map((t) => (
           <Txt key={t} v="body" style={{ marginBottom: 10 }}>{`• ${t}`}</Txt>
@@ -153,7 +154,7 @@ export default function DataPrivacy() {
       <ConfirmSheet
         visible={sheet === 'delete'}
         title="Delete my data"
-        body="This permanently removes everything stored in BrightPath on this device: learners, goals, observations, rewards and team. It can’t be undone."
+        body="This permanently removes everything stored in BrightPath on this device: learners, goals, observations, rewards, team and Talk board words. It can’t be undone."
         confirmTitle="Delete everything"
         confirmDisabled={typed.trim().toUpperCase() !== 'DELETE'}
         onCancel={closeDelete}

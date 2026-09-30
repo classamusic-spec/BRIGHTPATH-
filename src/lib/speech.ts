@@ -37,4 +37,38 @@ export function speak(text: string, opts: { force?: boolean } = {}) {
 export function stopSpeaking() {
   Speech.stop();
   setSpeaking(false);
+  useTalkVoice.setState({ talking: false });
+}
+
+/** Whether the Talk board voice is speaking (lights up the speak button). */
+export const useTalkVoice = create<{ talking: boolean }>(() => ({ talking: false }));
+
+let talkTurn = 0;
+
+/**
+ * The child's own voice on the Talk board. Unlike `speak` it always speaks:
+ * this is how the child talks, so Read Aloud settings never mute it and a
+ * Quiet session only makes it softer. Maple's mouth stays still — it is not
+ * Maple talking.
+ */
+export function sayAloud(text: string) {
+  const s = useApp.getState();
+  const l = selectLearner(s);
+  const turn = ++talkTurn;
+  // Callbacks from an interrupted utterance must not switch the new one off.
+  const set = (talking: boolean) => {
+    if (turn === talkTurn) useTalkVoice.setState({ talking });
+  };
+  Speech.stop();
+  setSpeaking(false);
+  Speech.speak(text.replace(/[“”]/g, '"'), {
+    language: 'en-US',
+    rate: l?.access?.processing === 'extended' ? 0.9 : 0.95,
+    pitch: 1.1,
+    volume: s.session.quiet ? 0.6 : 1,
+    onStart: () => set(true),
+    onDone: () => set(false),
+    onStopped: () => set(false),
+    onError: () => set(false),
+  });
 }

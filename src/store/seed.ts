@@ -21,6 +21,7 @@ import {
 } from '@/engine/types';
 
 import { DEFAULT_ACCESS } from './defaults';
+import { DEFAULT_TALK, type TalkPrefs } from './talk';
 
 export interface SeedData {
   learners: Learner[];
@@ -29,6 +30,7 @@ export interface SeedData {
   team: TeamMember[];
   plans: SupportPathPlan[];
   rewards: Record<string, Rewards>;
+  talk: Record<string, TalkPrefs>;
 }
 
 function mulberry32(a: number) {
@@ -43,7 +45,22 @@ function mulberry32(a: number) {
 
 const DAY = 24 * 3600 * 1000;
 
-export const ALEX_ID = 'learner-alex';
+/** Gabriel's Talk board: a few words of his own and some recent favourites. */
+export function demoTalk(): TalkPrefs {
+  return {
+    ...DEFAULT_TALK,
+    custom: [
+      { id: 'mine.abuela', label: 'Abuela', say: 'Abuela', cls: 'people', symbol: 'old-woman' },
+      { id: 'mine.rocky', label: 'Rocky', say: 'Rocky, my dog', cls: 'people', symbol: 'dog-face' },
+      { id: 'mine.paint', label: 'paint a picture', say: 'I want to paint a picture', cls: 'action', symbol: 'artist-palette' },
+      { id: 'mine.big-park', label: 'the big park', say: 'Can we go to the big park?', cls: 'thing', symbol: 'national-park' },
+    ],
+    recents: ['core.want', 'snacks.cookie', 'core.more', 'feelings.happy', 'toys.dinosaur'],
+  };
+}
+
+/** The demo family's main child. */
+export const DEMO_CHILD_ID = 'learner-gabriel';
 
 const OTHER_LEARNERS: [string, number, string, Learner['buddy']][] = [
   ['Maya', 7, '2nd Grade', 'pip'],
@@ -129,10 +146,10 @@ export function buildSeed(now: Date = new Date()): SeedData {
   };
 
   /* ------------------------------------------------------------ Learners */
-  const alex: Learner = {
-    id: ALEX_ID,
-    displayName: 'Alex',
-    fullName: 'Alex Rivera',
+  const gabriel: Learner = {
+    id: DEMO_CHILD_ID,
+    displayName: 'Gabriel',
+    fullName: 'Gabriel Rivera',
     age: 6,
     ageBand: '5–7',
     grade: '1st Grade',
@@ -159,22 +176,22 @@ export function buildSeed(now: Date = new Date()): SeedData {
   }));
 
   /* --------------------------------------------------------------- Goals */
-  const gKind = goalFromTemplate('goal-kind-words', ALEX_ID, 'express-kindness', now, {
+  const gKind = goalFromTemplate('goal-kind-words', DEMO_CHILD_ID, 'express-kindness', now, {
     createdDaysAgo: 62,
     title: 'Use kind words when feeling upset',
-    notes: 'Alex is learning to pause and use kind words during challenging moments.',
+    notes: 'Gabriel is learning to pause and use kind words during challenging moments.',
     supportLevel: 3,
     // Due now, so it is Today's Mission.
     spaced: { index: 2, nextDue: new Date(now.getTime() - 2 * 3600 * 1000).toISOString() },
   });
-  const gHelp = goalFromTemplate('goal-ask-help', ALEX_ID, 'request-help', now, { createdDaysAgo: 70, supportLevel: 2 });
-  const gCalm = goalFromTemplate('goal-calm-tool', ALEX_ID, 'choose-support-tool', now, {
+  const gHelp = goalFromTemplate('goal-ask-help', DEMO_CHILD_ID, 'request-help', now, { createdDaysAgo: 70, supportLevel: 2 });
+  const gCalm = goalFromTemplate('goal-calm-tool', DEMO_CHILD_ID, 'choose-support-tool', now, {
     createdDaysAgo: 48,
     supportLevel: 3,
     currentPattern: 'Sometimes yells or pushes items away when a plan changes quickly.',
   });
-  const gRoutine = goalFromTemplate('goal-morning', ALEX_ID, 'short-routine', now, { createdDaysAgo: 40, supportLevel: 3 });
-  const gFlex = goalFromTemplate('goal-flex', ALEX_ID, 'try-another-option', now, { createdDaysAgo: 18, supportLevel: 5 });
+  const gRoutine = goalFromTemplate('goal-morning', DEMO_CHILD_ID, 'short-routine', now, { createdDaysAgo: 40, supportLevel: 3 });
+  const gFlex = goalFromTemplate('goal-flex', DEMO_CHILD_ID, 'try-another-option', now, { createdDaysAgo: 18, supportLevel: 5 });
   const goals: GrowthGoal[] = [gKind, gHelp, gCalm, gRoutine, gFlex];
   goals.push(
     goalFromTemplate('goal-maya-break', 'learner-maya', 'request-break', now, { createdDaysAgo: 30 }),
@@ -182,7 +199,7 @@ export function buildSeed(now: Date = new Date()): SeedData {
     goalFromTemplate('goal-priya-friend', 'learner-priya', 'respond-to-friend', now, { createdDaysAgo: 21 }),
   );
 
-  /* ------------------------------------------------ Alex: app practice */
+  /* --------------------------------------------- Gabriel: app practice */
   // Growth over ~9 weeks: support fades and success rises. Weekly cadence.
   const appPlan: { goal: GrowthGoal; mission: string; weeks: number; start: number; end: number; startSupport: number; endSupport: number }[] = [
     { goal: gKind, mission: 'be-kind-home', weeks: 8, start: 0.35, end: 0.72, startSupport: 5, endSupport: 3 },
@@ -202,7 +219,7 @@ export function buildSeed(now: Date = new Date()): SeedData {
         const r = rand();
         const outcome: Outcome = r < rate * 0.75 ? 'independent' : r < rate ? 'supported' : r < rate + 0.15 ? 'partial' : 'notDemonstrated';
         add({
-          learnerId: ALEX_ID,
+          learnerId: DEMO_CHILD_ID,
           goalId: p.goal.id,
           skillArea: p.goal.skillArea,
           missionId: p.mission,
@@ -217,12 +234,12 @@ export function buildSeed(now: Date = new Date()): SeedData {
     }
   }
   // A tired check-in stays access-limited — never counted as failure.
-  add({ learnerId: ALEX_ID, goalId: gKind.id, skillArea: 'emotions', outcome: 'accessLimited', quality: 'accessLimited', missionId: 'be-kind-home', at: at(16, 17) });
+  add({ learnerId: DEMO_CHILD_ID, goalId: gKind.id, skillArea: 'emotions', outcome: 'accessLimited', quality: 'accessLimited', missionId: 'be-kind-home', at: at(16, 17) });
   // Self-advocacy tools used during missions.
-  add({ learnerId: ALEX_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'supported', supportLevel: 3, tools: ['help'], missionId: 'help-hero', at: at(11, 16) });
-  add({ learnerId: ALEX_ID, goalId: gCalm.id, skillArea: 'emotions', outcome: 'independent', supportLevel: 2, tools: ['break'], missionId: 'be-kind-home', tags: ['deep-breathing'], at: at(4, 15) });
+  add({ learnerId: DEMO_CHILD_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'supported', supportLevel: 3, tools: ['help'], missionId: 'help-hero', at: at(11, 16) });
+  add({ learnerId: DEMO_CHILD_ID, goalId: gCalm.id, skillArea: 'emotions', outcome: 'independent', supportLevel: 2, tools: ['break'], missionId: 'be-kind-home', tags: ['deep-breathing'], at: at(4, 15) });
 
-  /* -------------------------------- Alex: real-world context evidence */
+  /* ----------------------------- Gabriel: real-world context evidence */
   type Target = 'strong' | 'growing' | 'some' | 'needs' | 'none';
   const matrix: Record<SkillArea, Record<Setting, Target>> = {
     communication: { home: 'growing', school: 'strong', social: 'some', outdoors: 'strong' },
@@ -268,13 +285,13 @@ export function buildSeed(now: Date = new Date()): SeedData {
     for (const setting of Object.keys(matrix[area]) as Setting[]) {
       const target = matrix[area][setting];
       if (target === 'none') {
-        add({ learnerId: ALEX_ID, skillArea: area, outcome: 'independent', supportLevel: 2, source: sourceFor[setting], context: { setting }, realWorld: true, at: at(26), title: pick(titles[setting]), note: 'Only one observation so far.', valence: 'positive' });
+        add({ learnerId: DEMO_CHILD_ID, skillArea: area, outcome: 'independent', supportLevel: 2, source: sourceFor[setting], context: { setting }, realWorld: true, at: at(26), title: pick(titles[setting]), note: 'Only one observation so far.', valence: 'positive' });
         continue;
       }
       for (const [outcome, support] of recipe[target]) {
         const valence: Valence = outcome === 'independent' ? 'positive' : outcome === 'supported' ? pick(['positive', 'neutral'] as Valence[]) : 'challenging';
         add({
-          learnerId: ALEX_ID,
+          learnerId: DEMO_CHILD_ID,
           goalId: areaGoal[area]?.id,
           skillArea: area,
           outcome,
@@ -292,14 +309,14 @@ export function buildSeed(now: Date = new Date()): SeedData {
     }
   }
   // Retention probe for Ask for help (remembered after a week).
-  add({ learnerId: ALEX_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'school', context: { setting: 'school', person: 'teacher' }, realWorld: true, delayDays: 7, valence: 'positive', title: 'Classroom', note: 'Raised the Help card without a reminder after a week off.', at: at(9, 10) });
-  add({ learnerId: ALEX_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'school', context: { setting: 'school', person: 'teacher' }, realWorld: true, valence: 'positive', title: 'Classroom', note: 'Asked “Can you help me, please?” with a stuck zipper.', at: at(2, 8) });
+  add({ learnerId: DEMO_CHILD_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'school', context: { setting: 'school', person: 'teacher' }, realWorld: true, delayDays: 7, valence: 'positive', title: 'Classroom', note: 'Raised the Help card without a reminder after a week off.', at: at(9, 10) });
+  add({ learnerId: DEMO_CHILD_ID, goalId: gHelp.id, skillArea: 'communication', outcome: 'independent', supportLevel: 1, source: 'school', context: { setting: 'school', person: 'teacher' }, realWorld: true, valence: 'positive', title: 'Classroom', note: 'Asked “Can you help me, please?” with a stuck zipper.', at: at(2, 8) });
   // Last complete week always has independence and routine moments (7 days ago is always in it).
-  add({ learnerId: ALEX_ID, skillArea: 'independence', outcome: 'supported', supportLevel: 4, source: 'home', context: { setting: 'home', person: 'parent' }, realWorld: true, valence: 'positive', title: 'Getting Ready', note: 'Packed the backpack with the picture list.', at: at(7, 8, 5) });
-  add({ learnerId: ALEX_ID, goalId: gRoutine.id, skillArea: 'routines', outcome: 'independent', supportLevel: 2, missionId: 'morning-road', modality: 'tap', at: at(7, 17, 30) });
+  add({ learnerId: DEMO_CHILD_ID, skillArea: 'independence', outcome: 'supported', supportLevel: 4, source: 'home', context: { setting: 'home', person: 'parent' }, realWorld: true, valence: 'positive', title: 'Getting Ready', note: 'Packed the backpack with the picture list.', at: at(7, 8, 5) });
+  add({ learnerId: DEMO_CHILD_ID, goalId: gRoutine.id, skillArea: 'routines', outcome: 'independent', supportLevel: 2, missionId: 'morning-road', modality: 'tap', at: at(7, 17, 30) });
   // The reference moment on Real-World Observation.
   add({
-    learnerId: ALEX_ID,
+    learnerId: DEMO_CHILD_ID,
     goalId: gKind.id,
     skillArea: 'communication',
     outcome: 'independent',
@@ -309,7 +326,7 @@ export function buildSeed(now: Date = new Date()): SeedData {
     realWorld: true,
     valence: 'positive',
     title: 'At the Park',
-    note: 'Alex shared a toy with a friend and used kind words!',
+    note: 'Gabriel shared a toy with a friend and used kind words!',
     tags: ['Social Skills', 'Kindness', 'Independence'],
     at: at(0, 10, 24),
   });
@@ -351,16 +368,16 @@ export function buildSeed(now: Date = new Date()): SeedData {
 
   /* ---------------------------------------------------------------- Team */
   const team: TeamMember[] = [
-    { id: 'tm-you', name: 'Taylor', role: 'parent', title: 'Parent / Caregiver', permission: 'owner', avatar: 'you', learnerIds: [ALEX_ID, ...others.map((o) => o.id)], isSelf: true },
-    { id: 'tm-mrs-taylor', name: 'Mrs. Taylor', role: 'teacher', title: 'Teacher', permission: 'edit', avatar: 'mrsTaylor', learnerIds: [ALEX_ID] },
-    { id: 'tm-dr-kim', name: 'Dr. Kim', role: 'therapist', title: 'Therapist', permission: 'edit', avatar: 'drKim', learnerIds: [ALEX_ID] },
-    { id: 'tm-jordan', name: 'Coach Jordan', role: 'coach', title: 'Coach', permission: 'view', avatar: 'jordan', learnerIds: [ALEX_ID] },
+    { id: 'tm-you', name: 'Taylor', role: 'parent', title: 'Parent / Caregiver', permission: 'owner', avatar: 'you', learnerIds: [DEMO_CHILD_ID, ...others.map((o) => o.id)], isSelf: true },
+    { id: 'tm-mrs-taylor', name: 'Mrs. Taylor', role: 'teacher', title: 'Teacher', permission: 'edit', avatar: 'mrsTaylor', learnerIds: [DEMO_CHILD_ID] },
+    { id: 'tm-dr-kim', name: 'Dr. Kim', role: 'therapist', title: 'Therapist', permission: 'edit', avatar: 'drKim', learnerIds: [DEMO_CHILD_ID] },
+    { id: 'tm-jordan', name: 'Coach Jordan', role: 'coach', title: 'Coach', permission: 'view', avatar: 'jordan', learnerIds: [DEMO_CHILD_ID] },
   ];
 
   const plans: SupportPathPlan[] = [
     {
-      id: 'plan-alex-1',
-      learnerId: ALEX_ID,
+      id: 'plan-gabriel-1',
+      learnerId: DEMO_CHILD_ID,
       goalId: gCalm.id,
       pattern: {
         description: 'Yells or pushes items away when a plan changes quickly.',
@@ -382,7 +399,7 @@ export function buildSeed(now: Date = new Date()): SeedData {
   ];
 
   const rewards: Record<string, Rewards> = {
-    [ALEX_ID]: {
+    [DEMO_CHILD_ID]: {
       stars: 12,
       badges: [
         { id: 'brave', earnedAt: new Date(now.getTime() - 9 * DAY).toISOString() },
@@ -394,5 +411,5 @@ export function buildSeed(now: Date = new Date()): SeedData {
     },
   };
 
-  return { learners: [alex, ...others], goals, observations, team, plans, rewards };
+  return { learners: [gabriel, ...others], goals, observations, team, plans, rewards, talk: { [DEMO_CHILD_ID]: demoTalk() } };
 }

@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icons/Icon';
+import { QuickTalk } from '@/components/talk/QuickTalk';
+import { TalkPicture } from '@/components/talk/TalkPicture';
 import { Button, Sheet, Tap, Txt } from '@/components/ui';
 import { GUIDE } from '@/content/cast';
 import type { AgencyTool } from '@/engine/types';
@@ -11,7 +13,7 @@ import { successHaptic } from '@/lib/feedback';
 import { speak } from '@/lib/speech';
 import { useApp } from '@/store';
 import { useMission } from '@/store/mission';
-import { colors, radius, shadows, tones, type Tone } from '@/theme';
+import { colors, fonts, GUTTER, radius, shadows, tones, type Tone } from '@/theme';
 
 const TOOLS: { key: AgencyTool; label: string; sub: string; icon: IconName; tone: Tone }[] = [
   { key: 'break', label: 'Break', sub: 'Calm Space', icon: 'sprout', tone: 'mint' },
@@ -24,7 +26,9 @@ const TOOLS: { key: AgencyTool; label: string; sub: string; icon: IconName; tone
 
 /**
  * My Tools — Break, Help, More Time, Stop, Not Yet, Quiet Please, My Choice.
- * Always available, never earned or removed (Framework §2.2).
+ * Always available, never earned or removed (Framework §2.2). It opens with
+ * the quick Talk cards and the way into the Talk board, so a child who speaks
+ * little can say what they need from any screen.
  */
 export function MyToolsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const pathname = usePathname();
@@ -110,8 +114,30 @@ export function MyToolsSheet({ visible, onClose }: { visible: boolean; onClose: 
     }
   };
 
+  const openTalk = () => {
+    close();
+    router.push('/kid/talk');
+  };
+
   return (
     <Sheet visible={visible} onClose={close} title="My Tools" subtitle="You can use these any time.">
+      <Txt v="label" color={colors.textSoft} style={{ marginBottom: 2 }}>
+        Say it out loud
+      </Txt>
+      <QuickTalk
+        compact
+        style={{ marginHorizontal: -GUTTER, marginBottom: 12 }}
+        lead={
+          pathname === '/kid/talk' ? null : (
+            <Tap onPress={openTalk} style={styles.talkBoard} accessibilityLabel="Open the Talk board" accessibilityHint="Pictures for everything you want to say" scale={0.9}>
+              <TalkPicture symbol="speech-balloon" size={30} />
+              <Txt v="label" color={colors.onPrimary} center numberOfLines={1} style={styles.talkText}>
+                Talk
+              </Txt>
+            </Tap>
+          )
+        }
+      />
       <View style={styles.grid}>
         {TOOLS.map((t) => {
           const isQuiet = t.key === 'quiet';
@@ -166,4 +192,6 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   tool: { width: '31.5%', minHeight: 118, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 6, borderWidth: 2.5, borderColor: 'transparent' },
   note: { marginTop: 14, backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: 14 },
+  talkBoard: { width: 68, height: 62, borderRadius: 14, backgroundColor: colors.primaryPressed, alignItems: 'center', justifyContent: 'center', ...shadows.button },
+  talkText: { fontFamily: fonts.extrabold, fontSize: 13, lineHeight: 17, marginTop: 1 },
 });

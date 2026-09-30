@@ -17,6 +17,7 @@ const TOOLS: { icon: IconName; tone: Tone; title: string; sub: string; path: str
   { icon: 'mountain', tone: 'blue', title: 'Growth Map', sub: 'The path so far', path: '/coach/learner/[id]/growth-map' },
   { icon: 'barsGreen', tone: 'mint', title: 'Progress Report', sub: 'Skills, goals and milestones', path: '/coach/learner/[id]/report' },
   { icon: 'bulb', tone: 'butter', title: 'Coach Insights', sub: 'Observational, evidence-linked', path: '/coach/learner/[id]/insights' },
+  { icon: 'chat', tone: 'orange', title: 'Talk Board', sub: 'Picture words, own photos, voice', path: '/coach/learner/[id]/talk' },
   { icon: 'shield', tone: 'lavender', title: 'Access Profile', sub: 'Sensory, communication, motor', path: '/coach/learner/[id]/child', params: { section: 'access' } },
 ];
 

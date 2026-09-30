@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { HillStrip, withRouteLearner } from '@/components/coach/Kit';
 import { Icon } from '@/components/icons/Icon';
 import { BuddyPortrait } from '@/components/kid/Buddy';
+import { TalkPicture } from '@/components/talk/TalkPicture';
 import { Appear, Card, Header, IconTile, ListRow, Screen, Txt } from '@/components/ui';
 import type { Learner } from '@/engine/types';
 import { useApp } from '@/store';
@@ -22,6 +23,7 @@ function AccessProfileScreen({ learner }: { learner: Learner }) {
   const go = (path: string, params: Record<string, string> = {}) => router.push({ pathname: path as never, params: { id: learner.id, ...params } } as never);
   const rows = [
     { key: 'child', title: 'Child Profile', sub: learner.fullName ?? learner.displayName, node: <IconTile tone="sky" size={74} radiusPx={20} style={{ overflow: 'hidden' }}><BuddyPortrait id={learner.buddy} size={82} /></IconTile>, onPress: () => go('/coach/learner/[id]/child') },
+    { key: 'talk', title: 'Talk Board', sub: 'Picture words and own photos', node: <IconTile tone="orange" size={74} radiusPx={20}><TalkPicture symbol="speech-balloon" size={48} /></IconTile>, onPress: () => go('/coach/learner/[id]/talk') },
     { key: 'care', title: 'Caregivers', sub: `${caregivers} linked`, node: <IconTile tone="mint" size={74} radiusPx={20}><Icon name="personGreen" size={50} /></IconTile>, onPress: () => go('/coach/learner/[id]/team') },
     { key: 'edu', title: 'Educators', sub: `${teachers} teacher${teachers === 1 ? '' : 's'}, ${therapists} therapist${therapists === 1 ? '' : 's'}`, node: <IconTile tone="butter" size={74} radiusPx={20}><Icon name="personYellow" size={50} /></IconTile>, onPress: () => go('/coach/learner/[id]/team') },
     { key: 'perm', title: 'Permissions', sub: 'Manage access', node: <IconTile tone="blue" size={74} radiusPx={20}><Icon name="lock" size={48} /></IconTile>, onPress: () => go('/coach/learner/[id]/team', { invite: '1' }) },

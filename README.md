@@ -29,6 +29,7 @@ module used here ships with Expo Go, so no custom build is needed.
 | `npm test`          | Engine and content-governance tests |
 | `npm run typecheck` | TypeScript (`tsc --noEmit`)         |
 | `npm run lint`      | ESLint via `expo lint`              |
+| `npm run talk:symbols` | Re-render the Talk board pictures after changing `src/content/talk.ts` |
 
 Store builds use EAS: `npx eas-cli@latest build -p ios` / `-p android`
 (requires an Expo account).
@@ -37,7 +38,7 @@ Store builds use EAS: `npx eas-cli@latest build -p ios` / `-p android`
 
 The app opens on the child's side. The gear on the World Map leads to the
 **parent gate** (type the three numbers shown as words) and the Parent/Coach
-side. The app starts with demo data for a learner called Alex so every screen
+side. The app starts with demo data for a learner called Gabriel so every screen
 has something to show; adults can delete it (or load it again) from
 **Data & Privacy**.
 
@@ -55,9 +56,41 @@ has something to show; adults can delete it (or load it again) from
 | 32–34 | Context Matrix, Real-World Observation, Support Path    | `…/context`, `…/real-world`, `…/support-path`                              |
 | 35–36 | Rewards / Profile, Progress Report                      | `…/profile` (also `/kid/profile`), `…/report`                              |
 | 37–40 | Data & Privacy, Settings, Notifications, Coach Insights | `/coach/privacy`, `/coach/settings`, `/coach/notifications`, `…/insights`  |
+| —     | Talk board (AAC) and its grown-up settings              | `/kid/talk`, `…/talk`                                                      |
 
 Five missions are included: _Be Kind at Home_, _Pip's Tower_, _Help Hero_,
 _Routine Road_ and _Flexi-Fix_.
+
+## Talk board
+
+An always-available picture board (AAC) for children who speak little or not
+at all. It is one tap from the World Map (the **Talk** button) and inside
+**My Tools** on every kid screen, where the quick words can be spoken straight
+away.
+
+- **Quick words** are always on screen: yes, no, help me, bathroom, break,
+  hurt, stop, all done — each says a whole phrase.
+- **Core words** (36, Project Core-style) keep a fixed place so hands can learn
+  where they are.
+- **Topics**: 14 more categories with 51 subcategories — feelings, food,
+  play, people, places, actions, body, clothes, animals, describing words,
+  time and weather, school, chat and manners, and getting around — plus
+  **Recent** and the child's own **My words**. 722 picture cards in all.
+- Cards are coloured by word type (Modified Fitzgerald Key). Tapping a card
+  says it and adds it to the message strip; tapping the strip says the whole
+  message. The voice is the device's text-to-speech; Quiet only makes it softer.
+- Grown-ups set cards per row, spoken taps, word labels, which topics show and
+  recent-word memory, and add the child's own words with a library picture or
+  a photo (made small and kept on the device) under
+  **Learner → Talk Board** (also linked from Tools, Access Profile and Child
+  Profile).
+- What a child says is their voice: it is never scored, sent anywhere or
+  recorded as evidence.
+
+Vocabulary lives in `src/content/talk.ts`. Pictures are
+[Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (MIT, Microsoft),
+rendered to small PNGs in `assets/talk/` by `npm run talk:symbols`, which
+also writes `src/content/talkSymbols.ts`.
 
 ## Maple and friends
 
@@ -96,7 +129,8 @@ Design principles carried through every screen:
   leaderboards or lost rewards. Stars are never taken away and are kept
   separate from evidence.
 - **Every way of communicating counts equally** (speech, AAC, pictures,
-  gesture, tap, typing), with read-aloud on every scenario.
+  gesture, tap, typing), with read-aloud on every scenario and the Talk board
+  always within reach.
 - **Privacy**: a display name is all BrightPath needs (age and grade are
   optional); no ads, no child chat and no third-party analytics. Data stays on the device and can be exported as JSON
   or deleted from Data & Privacy. Photos stay on the device and voice notes are
@@ -109,11 +143,12 @@ Design principles carried through every screen:
 src/app/          routes (expo-router): kid/, coach/, gate, dev/
 src/components/   ui/ (design system), characters/, scenery/, mission/, kid/, coach/, shared/, icons/
 src/engine/       evidence, decisions, prompts, spacing, bands, context, summaries (+ tests)
-src/content/      missions, quests, curriculum, rewards, governance
+src/content/      missions, quests, curriculum, rewards, governance, Talk vocabulary
 src/store/        zustand store, seed data, derived selectors
 src/lib/          motion, sound, speech, haptics, text fitting
 src/theme/        colours, typography, spacing, shadows
-assets/           icons, splash, sounds
+assets/           icons, splash, sounds, talk/ (Talk board pictures)
+scripts/          build-talk-symbols.mjs
 ```
 
 ## Status and known limits

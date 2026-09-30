@@ -33,7 +33,8 @@ import {
 
 import { DEFAULT_ACCESS, DEFAULT_NOTIFICATIONS, EMPTY_REWARDS } from './defaults';
 import { migrateStore, STORE_VERSION } from './migrations';
-import { ALEX_ID, buildSeed } from './seed';
+import { buildSeed, DEMO_CHILD_ID } from './seed';
+import { CUSTOM_PREFIX, DEFAULT_TALK, MAX_CUSTOM_CARDS, withRecent, type TalkCustomCard, type TalkPrefs } from './talk';
 
 export interface RealWorldQuest {
   id: string;
@@ -90,6 +91,8 @@ export interface AppData {
   consent: { analytics: boolean; cloudSync: boolean; photos: boolean };
   language: 'en';
   appearance: 'light';
+  /** Talk board settings and own words, per learner. */
+  talk: Record<string, TalkPrefs>;
 }
 
 type NewObservation = Omit<Observation, 'id' | 'versions' | 'tools' | 'tags' | 'quality'> &
@@ -133,6 +136,14 @@ export interface AppActions {
   setNotifications: (patch: Partial<NotificationPrefs>) => void;
   setConsent: (patch: Partial<AppData['consent']>) => void;
   setAdultName: (name: string) => void;
+  updateTalk: (learnerId: string, patch: Partial<Omit<TalkPrefs, 'custom' | 'recents'>>) => void;
+  /** Remembers a card the child used, when recents are kept. Talk is never evidence. */
+  noteTalkUse: (learnerId: string, cardId: string) => void;
+  clearTalkRecents: (learnerId: string) => void;
+  /** Returns the new card's id, or null when the board is full. */
+  addTalkCard: (learnerId: string, card: Omit<TalkCustomCard, 'id'>) => string | null;
+  updateTalkCard: (learnerId: string, id: string, patch: Partial<Omit<TalkCustomCard, 'id'>>) => void;
+  removeTalkCard: (learnerId: string, id: string) => void;
   /** Tries to read saved data again after a failed load. */
   retryLoad: () => Promise<void>;
 }
@@ -186,6 +197,7 @@ function emptyData(): AppData {
     consent: { analytics: false, cloudSync: false, photos: false },
     language: 'en',
     appearance: 'light',
+    talk: {},
   };
 }
 
@@ -197,12 +209,13 @@ function demoData(now = new Date()): AppData {
     onboarded: true,
     adultName: 'Taylor',
     learners: seed.learners,
-    activeLearnerId: ALEX_ID,
+    activeLearnerId: DEMO_CHILD_ID,
     goals: seed.goals,
     observations: seed.observations,
     team: seed.team,
     plans: seed.plans,
     rewards: seed.rewards,
+    talk: seed.talk,
   };
 }
 
@@ -225,6 +238,7 @@ const DATA_KEYS: (keyof AppData)[] = [
   'consent',
   'language',
   'appearance',
+  'talk',
 ];
 
 /* ------------------------------------------------------------------ */
@@ -298,6 +312,8 @@ try {
 } catch {
   // AppState is unavailable in some test and server environments.
 }
+
+const talkOf = (s: AppData, learnerId: string): TalkPrefs => s.talk?.[learnerId] ?? DEFAULT_TALK;
 
 const localDay = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const HOUR_MS = 3600 * 1000;
@@ -503,6 +519,42 @@ export const useApp = create<AppState>()(
       setNotifications: (patch) => set((s) => ({ notifications: { ...s.notifications, ...patch } })),
       setConsent: (patch) => set((s) => ({ consent: { ...s.consent, ...patch } })),
       setAdultName: (adultName) => set({ adultName }),
+
+      updateTalk: (learnerId, patch) =>
+        set((s) => {
+          const t = { ...talkOf(s, learnerId), ...patch };
+          if (!t.keepRecents) t.recents = [];
+          return { talk: { ...s.talk, [learnerId]: t } };
+        }),
+      noteTalkUse: (learnerId, cardId) =>
+        set((s) => {
+          const t = talkOf(s, learnerId);
+          if (!t.keepRecents || t.recents[0] === cardId) return {};
+          return { talk: { ...s.talk, [learnerId]: { ...t, recents: withRecent(t.recents, cardId) } } };
+        }),
+      clearTalkRecents: (learnerId) => set((s) => ({ talk: { ...s.talk, [learnerId]: { ...talkOf(s, learnerId), recents: [] } } })),
+      addTalkCard: (learnerId, card) => {
+        const t = talkOf(get(), learnerId);
+        if (t.custom.length >= MAX_CUSTOM_CARDS) return null;
+        const id = `${CUSTOM_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        set((s) => {
+          const cur = talkOf(s, learnerId);
+          return { talk: { ...s.talk, [learnerId]: { ...cur, custom: [...cur.custom, { ...card, id }] } } };
+        });
+        return id;
+      },
+      updateTalkCard: (learnerId, id, patch) =>
+        set((s) => {
+          const t = talkOf(s, learnerId);
+          return { talk: { ...s.talk, [learnerId]: { ...t, custom: t.custom.map((c) => (c.id === id ? { ...c, ...patch } : c)) } } };
+        }),
+      removeTalkCard: (learnerId, id) =>
+        set((s) => {
+          const t = talkOf(s, learnerId);
+          return {
+            talk: { ...s.talk, [learnerId]: { ...t, custom: t.custom.filter((c) => c.id !== id), recents: t.recents.filter((r) => r !== id) } },
+          };
+        }),
       retryLoad: async () => {
         set({ loadError: null, hydrated: false });
         await useApp.persist.rehydrate();
@@ -557,6 +609,11 @@ export const selectLearner = (s: AppState) => s.learners.find((l) => l.id === s.
 
 export function useLearner(): Learner {
   return useApp(selectLearner);
+}
+
+/** A learner's Talk board settings (defaults until an adult changes them). */
+export function useTalkPrefs(learnerId: string): TalkPrefs {
+  return useApp((s) => talkOf(s, learnerId));
 }
 
 export function useRewards(): Rewards {
